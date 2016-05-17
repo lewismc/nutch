@@ -22,16 +22,19 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Random;
+
 import org.apache.avro.util.Utf8;
 import org.apache.gora.filter.FilterOp;
 import org.apache.gora.filter.MapFieldValueFilter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.gora.mapreduce.GoraMapper;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
+import org.apache.htrace.core.HTraceConfiguration;
+import org.apache.htrace.core.TraceScope;
+import org.apache.htrace.core.Tracer;
 import org.apache.nutch.crawl.GeneratorJob;
 import org.apache.nutch.crawl.URLPartitioner.FetchEntryPartitioner;
 import org.apache.nutch.metadata.Nutch;
@@ -47,7 +50,8 @@ import org.apache.nutch.util.NutchTool;
 import org.apache.nutch.util.TableUtil;
 import org.apache.nutch.util.TimingUtil;
 import org.apache.nutch.util.ToolUtil;
-import org.apache.gora.mapreduce.GoraMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Multi-threaded fetcher.
@@ -68,6 +72,47 @@ public class FetcherJob extends NutchTool implements Tool {
   public static final String THREADS_KEY = "fetcher.threads.fetch";
 
   private static final Collection<WebPage.Field> FIELDS = new HashSet<WebPage.Field>();
+  
+  /* Here we create an HTrace Tracer object.
+   * 
+   * It is difficult to trace every operation. The volume of trace span
+   * data thatwould be generated would be extremely large! We therefore
+   * typically rely on sampling a subset of all possible traces.
+   * 
+   * Tracer objects contain Samplers. When you call Tracer#newScope, the
+   * Tracer will consult that Sampler to determine if a new span should be
+   * created, or if an empty scope which contains no span should be returned.
+   * Note that if there is already a currently active span, the Tracer will
+   * always create a child span, regardless of what the sampler says.  This is
+   * because we want to see the complete graph of every operation, not just
+   * "bits and pieces." Tracer objects also manage the SpanReceiver objects
+   * which control where spans are sent.
+   * 
+   * A single process or library can have many Tracer objects. Each Tracer
+   * object has its own configuration. One way of thinking of Tracer object
+   * is that they are similar to Log objects in log4j. Just as you might
+   * create a Log object for a Hadoop NameNode and one for the DataNode,
+   * we create a Tracer for the NameNode and another Tracer for the DataNode.
+   * This allows users to control the sampling rate for the DataNode and the
+   * NameNode separately.
+   * 
+   * Unlike HTraces TraceScope and Span, Tracer objects are thread-safe.
+   * It is perfectly acceptable (and even recommended) to have multiple
+   * threads calling Tracer#newScope at once on the same Tracer object.
+   * 
+   * The number of Tracer objects you should create in your project depends
+   * on the structure of your project.  Many applications end up creating a
+   * small number of global Tracer objects, in the case of the Nutch Fetcher,
+   * we create one Tracer and use it in a thread safe manner within the Fetch
+   * phase of a crawl cycle.
+   */
+  public Tracer tracer = new Tracer.Builder("FetcherTracer")
+      .conf(HTraceConfiguration.fromKeyValuePairs(
+          "span.receiver.classes", getConf().get("htrace.span.receiver.class", 
+              "org.apache.htrace.core.LocalFileSpanReceiver"),
+          "local.file.span.receiver.path", getConf().get("htrace.local.file.span.receiver.path", 
+              ""),
+          "tracer.id", "%tname")).build();
 
   static {
     FIELDS.add(WebPage.Field.MARKERS);
@@ -114,15 +159,13 @@ public class FetcherJob extends NutchTool implements Tool {
         throws IOException, InterruptedException {
       if (Mark.GENERATE_MARK.checkMark(page) == null) {
         if (LOG.isDebugEnabled()) {
-          LOG.debug("Skipping " + TableUtil.unreverseUrl(key)
-          + "; not generated yet");
+          LOG.debug("Skipping {}; not generated yet", TableUtil.unreverseUrl(key));
         }
         return;
       }
       if (shouldContinue && Mark.FETCH_MARK.checkMark(page) != null) {
         if (LOG.isDebugEnabled()) {
-          LOG.debug("Skipping " + TableUtil.unreverseUrl(key)
-          + "; already fetched");
+          LOG.debug("Skipping {}; already fetched", TableUtil.unreverseUrl(key));
         }
         return;
       }
@@ -161,7 +204,18 @@ public class FetcherJob extends NutchTool implements Tool {
 
   @Override
   public Map<String, Object> run(Map<String, Object> args) throws Exception {
-    checkConfiguration();
+    //Create a preliminary TraceScope merely for checking the basic
+    //Fetcher configuration. Any trace spans created inside 
+    //checkConfiguration() will automatically have the CheckConfiguration 
+    //trace span we have created here as their parents. We don`t have
+    //to do any additional work to set up the parent/child relationship 
+    //because the thread-local data takes care of it.
+    TraceScope configuationScope = tracer.newScope("CheckConfiguration");
+    try {
+      checkConfiguration();
+    } finally {
+      configuationScope.close();
+    }
     String batchId = (String) args.get(Nutch.ARG_BATCH);
     Integer threads = (Integer) args.get(Nutch.ARG_THREADS);
     Boolean shouldResume = (Boolean) args.get(Nutch.ARG_RESUME);
@@ -280,12 +334,12 @@ public class FetcherJob extends NutchTool implements Tool {
 
     SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
     long start = System.currentTimeMillis();
-    LOG.info("FetcherJob: starting at " + sdf.format(start));
+    LOG.info("FetcherJob: starting at {}", sdf.format(start));
 
     if (batchId.equals(Nutch.ALL_BATCH_ID_STR)) {
       LOG.info("FetcherJob: fetching all");
     } else {
-      LOG.info("FetcherJob: batchId: " + batchId);
+      LOG.info("FetcherJob: batchId: {}", batchId);
     }
 
     run(ToolUtil.toArgMap(Nutch.ARG_BATCH, batchId, Nutch.ARG_THREADS, threads,
@@ -293,8 +347,8 @@ public class FetcherJob extends NutchTool implements Tool {
         Nutch.ARG_SITEMAP_DETECT, stmDetect, Nutch.ARG_SITEMAP, sitemap));
 
     long finish = System.currentTimeMillis();
-    LOG.info("FetcherJob: finished at " + sdf.format(finish)
-    + ", time elapsed: " + TimingUtil.elapsedTime(start, finish));
+    LOG.info("FetcherJob: finished at {}, time elapsed: {}",
+        sdf.format(finish), TimingUtil.elapsedTime(start, finish));
 
     return 0;
   }

@@ -84,7 +84,7 @@
 
 <property>
   <name>http.agent.name</name>
-  <value></value>
+  <value>nutch_2_test</value>
   <description>HTTP 'User-Agent' request header. MUST NOT be empty - 
   please set this to a single word uniquely related to your organization.
 
@@ -1350,15 +1350,9 @@
 
 <property>
   <name>storage.data.store.class</name>
-  <value>org.apache.gora.memory.store.MemStore</value>
+  <value>org.apache.gora.cassandra.store.CassandraStore</value>
   <description>The Gora DataStore class for storing and retrieving data.
    Currently the following stores are available:
-  
-  org.apache.gora.sql.store.SqlStore 
-    Default store. A DataStore implementation for RDBMS with a SQL interface.
-    SqlStore uses JDBC drivers to communicate with the DB. As explained in 
-    ivy.xml, currently >= gora-core 0.3 is not backwards compatable with 
-    SqlStore.
   
   org.apache.gora.cassandra.store.CassandraStore
     Gora class for storing data in Apache Cassandra.
@@ -1432,6 +1426,41 @@
   <description>Configures (for the Hadoop record writer) the maximum number of 
   buffered Records we wish to regularly flush to the Gora datastore. 
   @see org.apache.gora.mapreduce.GoraRecordWriter.
+  </description>
+</property>
+
+<property>
+  <name>span.receiver.classes</name>
+  <value>org.apache.htrace.impl.HTracedSpanReceiver</value>
+  <description>Defines the HTrace SpanReceiver implementation
+  to use. Implementations include the following:
+  org.apache.htrace.core.StandardOutSpanReceiver
+  org.apache.htrace.core.LocalFileSpanReceiver
+  org.apache.htrace.core.POJOSpanReceiver
+  org.apache.htrace.impl.FlumeSpanReceiver
+  org.apache.htrace.impl.HBaseSpanReceiver
+  org.apache.htrace.impl.HTracedSpanReceiver
+  org.apache.htrace.impl.ZipkinSpanReceiver
+  Note that in order to use the default LocalFileSpanReceiver,
+  the 'htrace.local.file.span.receiver.path' setting below
+  must be set to somewhere on the machine the HTrace Tracer
+  is running.
+  </description>
+</property>
+
+<property>
+  <name>sampler.classes</name>
+  <value>org.apache.htrace.core.LocalFileSpanReceiver</value>
+  <description>
+  </description>
+</property>
+
+<property>
+  <name>htrace.local.file.span.receiver.path</name>
+  <value>/usr/local/2scot/runtime/local/htrace_spans</value>
+  <description>A path on disk that HTrace will write Trace Spans
+  to if the 'LocalFileSpanReceiver' is selected as the SpanReceiver
+  implementation within the 'htrace.span.receiver.class' class.
   </description>
 </property>
 

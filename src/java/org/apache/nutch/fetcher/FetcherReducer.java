@@ -47,22 +47,23 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class FetcherReducer extends
-    GoraReducer<IntWritable, FetchEntry, String, WebPage> {
+GoraReducer<IntWritable, FetchEntry, String, WebPage> {
 
   public static final Logger LOG = FetcherJob.LOG;
 
   private final AtomicInteger activeThreads = new AtomicInteger(0);
   private final AtomicInteger spinWaiting = new AtomicInteger(0);
 
-  private final long start = System.currentTimeMillis(); // start time of
-                                                         // fetcher run
+  //start time of fetcher run
+  private final long start = System.currentTimeMillis();
   private final AtomicLong lastRequestStart = new AtomicLong(start);
 
-  private final AtomicLong bytes = new AtomicLong(0); // total bytes fetched
-  private final AtomicInteger pages = new AtomicInteger(0); // total pages
-                                                            // fetched
-  private final AtomicInteger errors = new AtomicInteger(0); // total pages
-                                                             // errored
+  //total bytes fetched
+  private final AtomicLong bytes = new AtomicLong(0);
+  // total pages fetched
+  private final AtomicInteger pages = new AtomicInteger(0);
+  //total pages errored
+  private final AtomicInteger errors = new AtomicInteger(0);
 
   private QueueFeeder feeder;
 
@@ -77,7 +78,7 @@ public class FetcherReducer extends
   private boolean skipTruncated;
 
   /**
-   * This class described the item to be fetched.
+   * This class describes the item to be fetched.
    */
   private static class FetchItem {
     WebPage page;
@@ -533,11 +534,11 @@ public class FetcherReducer extends
 
             if (stmRobot && (fit.u.getFile() == null
                 || fit.u.getFile().length() == 0 || (
-                fit.u.getFile().length() == 1 && fit.u.getFile().equals(
-                    "/")))) {
+                    fit.u.getFile().length() == 1 && fit.u.getFile().equals(
+                        "/")))) {
               for (String stmUrl : rules.getSitemaps()) {
                 fit.page.getSitemaps()
-                    .put(new Utf8(stmUrl), new Utf8());
+                .put(new Utf8(stmUrl), new Utf8());
               }
             }
 
@@ -631,7 +632,7 @@ public class FetcherReducer extends
 
     private void handleRedirect(String url, String newUrl, boolean temp,
         String redirType, WebPage page) throws URLFilterException, IOException,
-        InterruptedException {
+    InterruptedException {
       newUrl = normalizers.normalize(newUrl, URLNormalizers.SCOPE_FETCHER);
       newUrl = urlFilters.filter(newUrl);
       if (newUrl == null || newUrl.equals(url)) {
@@ -787,7 +788,7 @@ public class FetcherReducer extends
       LOG.info("QueueFeeder finished: total " + cnt
           + " records. Hit by time limit :" + timelimitcount);
       context.getCounter("FetcherStatus", "HitByTimeLimit-QueueFeeder")
-          .increment(timelimitcount);
+      .increment(timelimitcount);
     }
   }
 
@@ -796,13 +797,13 @@ public class FetcherReducer extends
     StringBuilder status = new StringBuilder();
     long elapsed = (System.currentTimeMillis() - start) / 1000;
     status.append(spinWaiting).append("/").append(activeThreads)
-        .append(" spinwaiting/active, ");
+    .append(" spinwaiting/active, ");
     status.append(pages).append(" pages, ").append(errors).append(" errors, ");
     status.append(Math.round((((float) pages.get()) * 10) / elapsed) / 10.0)
-        .append(" ");
+    .append(" ");
     status.append(Math.round((actualPages * 10) / 10.0)).append(" pages/s, ");
     status.append(Math.round((((float) bytes.get()) * 8) / 1024) / elapsed)
-        .append(" ");
+    .append(" ");
     status.append(Math.round(((float) actualBytes) * 8) / 1024).append(
         " kb/s, ");
     status.append(totalSize).append(" URLs in ");
@@ -890,7 +891,7 @@ public class FetcherReducer extends
         int hitByTimeLimit = fetchQueues.checkTimelimit();
         if (hitByTimeLimit != 0) {
           context.getCounter("FetcherStatus", "HitByTimeLimit-Queues")
-              .increment(hitByTimeLimit);
+          .increment(hitByTimeLimit);
         }
       }
 
@@ -918,7 +919,7 @@ public class FetcherReducer extends
 
             if (hitByThrougputThreshold != 0)
               context.getCounter("FetcherStatus", "hitByThrougputThreshold")
-                  .increment(hitByThrougputThreshold);
+              .increment(hitByThrougputThreshold);
           }
         } else {
           throughputThresholdCurrentSequence = 0;
