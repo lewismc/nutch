@@ -72,7 +72,7 @@ public class FetcherJob extends NutchTool implements Tool {
   public static final String THREADS_KEY = "fetcher.threads.fetch";
 
   private static final Collection<WebPage.Field> FIELDS = new HashSet<WebPage.Field>();
-  
+
   /* Here we create an HTrace Tracer object.
    * 
    * It is difficult to trace every operation. The volume of trace span
@@ -106,13 +106,7 @@ public class FetcherJob extends NutchTool implements Tool {
    * we create one Tracer and use it in a thread safe manner within the Fetch
    * phase of a crawl cycle.
    */
-  public Tracer tracer = new Tracer.Builder("FetcherTracer")
-      .conf(HTraceConfiguration.fromKeyValuePairs(
-          "span.receiver.classes", getConf().get("htrace.span.receiver.class", 
-              "org.apache.htrace.core.LocalFileSpanReceiver"),
-          "local.file.span.receiver.path", getConf().get("htrace.local.file.span.receiver.path", 
-              ""),
-          "tracer.id", "%tname")).build();
+  public Tracer tracer = null;
 
   static {
     FIELDS.add(WebPage.Field.MARKERS);
@@ -204,6 +198,17 @@ public class FetcherJob extends NutchTool implements Tool {
 
   @Override
   public Map<String, Object> run(Map<String, Object> args) throws Exception {
+
+    tracer = new Tracer.Builder("FetcherTracer")
+        .conf(HTraceConfiguration.fromKeyValuePairs(
+            Tracer.SPAN_RECEIVER_CLASSES_KEY, getConf().get("span.receiver.classes", 
+                "org.apache.htrace.impl.HTracedSpanReceiver"),
+            "htraced.receiver.address", getConf().get("htraced.receiver.address",
+                "127.0.0.1:8080"),
+            "local.file.span.receiver.path", getConf().get("local.file.span.receiver.path",
+                ""),
+            "tracer.id", "%tname")).build();
+
     //Create a preliminary TraceScope merely for checking the basic
     //Fetcher configuration. Any trace spans created inside 
     //checkConfiguration() will automatically have the CheckConfiguration 
@@ -267,7 +272,7 @@ public class FetcherJob extends NutchTool implements Tool {
     StorageUtils.initReducerJob(currentJob, FetcherReducer.class);
     if (numTasks == null || numTasks < 1) {
       currentJob.setNumReduceTasks(currentJob.getConfiguration().getInt(
-          "mapred.map.tasks", currentJob.getNumReduceTasks()));
+          "mapreduce.job.maps", currentJob.getNumReduceTasks()));
     } else {
       currentJob.setNumReduceTasks(numTasks);
     }
@@ -300,7 +305,7 @@ public class FetcherJob extends NutchTool implements Tool {
    * @param shouldResume
    * @param numTasks
    *          number of fetching tasks (reducers). If set to < 1 then use the
-   *          default, which is mapred.map.tasks.
+   *          default, which is mapreduce.job.maps.
    * @return 0 on success
    * @throws Exception
    */
@@ -320,7 +325,7 @@ public class FetcherJob extends NutchTool implements Tool {
    * @param shouldResume
    * @param numTasks
    *          number of fetching tasks (reducers). If set to < 1 then use the
-   *          default, which is mapred.map.tasks.
+   *          default, which is mapreduce.job.maps.
    * @param stmDetect
    *          If set true, sitemap detection is run.
    * @param sitemap
@@ -379,7 +384,7 @@ public class FetcherJob extends NutchTool implements Tool {
         + "    -crawlId <id> - the id to prefix the schemas to operate on, \n \t \t    (default: storage.crawl.id)\n"
         + "    -threads N    - number of fetching threads per task\n"
         + "    -resume       - resume interrupted job\n"
-        + "    -numTasks N   - if N > 0 then use this many reduce tasks for fetching \n \t \t    (default: mapred.map.tasks)"
+        + "    -numTasks N   - if N > 0 then use this many reduce tasks for fetching \n \t \t    (default: mapreduce.job.maps)"
         + "    -sitemap      - only sitemap files are fetched, defaults to false"
         + "    -stmDetect    - sitemap files are detected from robot.txt file";
 

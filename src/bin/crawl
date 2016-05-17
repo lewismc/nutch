@@ -61,7 +61,7 @@ fi
 numSlaves=1
 
 # and the total number of available tasks
-# sets Hadoop parameter "mapred.reduce.tasks"
+# sets Hadoop parameter "mapreduce.job.reduces"
 numTasks=`expr $numSlaves \* 2`
 
 # number of urls to fetch in one iteration
@@ -88,7 +88,7 @@ fi
 
 # note that some of the options listed here could be set in the 
 # corresponding hadoop site xml param file 
-commonOptions="-D mapred.reduce.tasks=$numTasks -D mapred.child.java.opts=-Xmx1000m -D mapred.reduce.tasks.speculative.execution=false -D mapred.map.tasks.speculative.execution=false -D mapred.compress.map.output=true"
+commonOptions="-D mapreduce.job.reduces=$numTasks -D mapred.child.java.opts=-Xmx1000m -D mapreduce.reduce.speculative=false -D mapreduce.map.speculative=false -D mapreduce.map.output.compress=true"
 
  # check that hadoop can be found on the path 
 if [ $mode = "distributed" ]; then

@@ -843,7 +843,7 @@ GoraReducer<IntWritable, FetchEntry, String, WebPage> {
       ft.start();
     }
     // select a timeout that avoids a task timeout
-    final long timeout = conf.getInt("mapred.task.timeout", 10 * 60 * 1000) / 2;
+    final long timeout = conf.getInt("mapreduce.task.timeout", 10 * 60 * 1000) / 2;
 
     // Used for threshold check, holds pages and bytes processed in the last sec
     float pagesLastSec;
