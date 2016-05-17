@@ -1350,7 +1350,7 @@
 
 <property>
   <name>storage.data.store.class</name>
-  <value>org.apache.gora.cassandra.store.CassandraStore</value>
+  <value>org.apache.gora.hbase.store.HBaseStore</value>
   <description>The Gora DataStore class for storing and retrieving data.
    Currently the following stores are available:
   
@@ -1431,7 +1431,7 @@
 
 <property>
   <name>span.receiver.classes</name>
-  <value>org.apache.htrace.impl.HTracedSpanReceiver</value>
+  <value>org.apache.htrace.core.LocalFileSpanReceiver</value>
   <description>Defines the HTrace SpanReceiver implementation
   to use. Implementations include the following:
   org.apache.htrace.core.StandardOutSpanReceiver
@@ -1449,15 +1449,16 @@
 </property>
 
 <property>
-  <name>sampler.classes</name>
-  <value>org.apache.htrace.core.LocalFileSpanReceiver</value>
-  <description>
+  <name>htraced.receiver.address</name>
+  <value>127.0.0.1:8080</value>
+  <description>hostname:port pair for thr server running
+  htraced e.g. 127.0.0.1:9096
   </description>
 </property>
 
 <property>
-  <name>htrace.local.file.span.receiver.path</name>
-  <value>/usr/local/2scot/runtime/local/htrace_spans</value>
+  <name>local.file.span.receiver.path</name>
+  <value>/usr/local/2scot/htrace_spans/htrace.log</value>
   <description>A path on disk that HTrace will write Trace Spans
   to if the 'LocalFileSpanReceiver' is selected as the SpanReceiver
   implementation within the 'htrace.span.receiver.class' class.
