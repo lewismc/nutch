@@ -32,7 +32,9 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
-import org.apache.hadoop.mapred.*;
+import org.apache.hadoop.mapreduce.*;
+import org.apache.hadoop.mapreduce.lib.input.*;
+import org.apache.hadoop.mapreduce.lib.output.*;
 import org.apache.hadoop.util.*;
 import org.apache.hadoop.conf.*;
 import org.apache.nutch.util.LockUtil;
@@ -61,7 +63,7 @@ public class CrawlDbMerger extends Configured implements Tool {
   private static final Logger LOG = LoggerFactory
       .getLogger(MethodHandles.lookup().lookupClass());
 
-  public static class Merger extends MapReduceBase implements
+  public static class Merger extends
       Reducer<Text, CrawlDatum, Text, CrawlDatum> {
     private org.apache.hadoop.io.MapWritable meta;
     private CrawlDatum res = new CrawlDatum();
@@ -70,12 +72,12 @@ public class CrawlDbMerger extends Configured implements Tool {
     public void close() throws IOException {
     }
 
-    public void configure(JobConf conf) {
+    public void configure(Configuration conf) {
       schedule = FetchScheduleFactory.getFetchSchedule(conf);
     }
 
     public void reduce(Text key, Iterator<CrawlDatum> values,
-        OutputCollector<Text, CrawlDatum> output, Reporter reporter)
+        Context context)
         throws IOException {
       long resTime = 0L;
       boolean resSet = false;
@@ -109,7 +111,7 @@ public class CrawlDbMerger extends Configured implements Tool {
         }
       }
       res.setMetaData(meta);
-      output.collect(key, res);
+      context.write(key, res);
     }
   }
 
@@ -129,7 +131,7 @@ public class CrawlDbMerger extends Configured implements Tool {
     long start = System.currentTimeMillis();
     LOG.info("CrawlDb merge: starting at " + sdf.format(start));
 
-    JobConf job = createMergeJob(getConf(), output, normalize, filter);
+    Job job = createMergeJob(getConf(), output, normalize, filter);
     for (int i = 0; i < dbs.length; i++) {
       if (LOG.isInfoEnabled()) {
         LOG.info("Adding " + dbs[i]);
@@ -137,7 +139,7 @@ public class CrawlDbMerger extends Configured implements Tool {
       FileInputFormat.addInputPath(job, new Path(dbs[i], CrawlDb.CURRENT_NAME));
     }
     try {
-      JobClient.runJob(job);
+      int complete = job.waitForCompletion(true)?0:1;
       CrawlDb.install(job, output);
     } catch (IOException e) {
       LockUtil.removeLockFile(getConf(), lock);
@@ -152,23 +154,24 @@ public class CrawlDbMerger extends Configured implements Tool {
         + TimingUtil.elapsedTime(start, end));
   }
 
-  public static JobConf createMergeJob(Configuration conf, Path output,
+  public static Job createMergeJob(Configuration conf, Path output,
       boolean normalize, boolean filter) {
     Path newCrawlDb = new Path(output,
         "merge-" + Integer.toString(new Random().nextInt(Integer.MAX_VALUE)));
 
-    JobConf job = new NutchJob(conf);
+    Job job = new NutchJob(conf);
+    conf = job.getConfiguration();
     job.setJobName("crawldb merge " + output);
 
-    job.setInputFormat(SequenceFileInputFormat.class);
+    job.setInputFormatClass(SequenceFileInputFormat.class);
 
     job.setMapperClass(CrawlDbFilter.class);
-    job.setBoolean(CrawlDbFilter.URL_FILTERING, filter);
-    job.setBoolean(CrawlDbFilter.URL_NORMALIZING, normalize);
+    conf.setBoolean(CrawlDbFilter.URL_FILTERING, filter);
+    conf.setBoolean(CrawlDbFilter.URL_NORMALIZING, normalize);
     job.setReducerClass(Merger.class);
 
     FileOutputFormat.setOutputPath(job, newCrawlDb);
-    job.setOutputFormat(MapFileOutputFormat.class);
+    job.setOutputFormatClass(MapFileOutputFormat.class);
     job.setOutputKeyClass(Text.class);
     job.setOutputValueClass(CrawlDatum.class);
 

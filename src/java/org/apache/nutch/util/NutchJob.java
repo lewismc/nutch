@@ -26,7 +26,7 @@ import org.apache.hadoop.mapreduce.Job;
 public class NutchJob extends Job {
 
   public NutchJob(Configuration conf) throws IOException {
-    super(conf,"NutchJob");
+    super(conf, "NutchJob");
   }
 
 }
