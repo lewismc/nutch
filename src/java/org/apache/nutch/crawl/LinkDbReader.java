@@ -30,8 +30,16 @@ import org.slf4j.LoggerFactory;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.io.*;
 import org.apache.hadoop.fs.*;
-import org.apache.hadoop.mapred.*;
-import org.apache.hadoop.mapred.lib.HashPartitioner;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Mapper.Context;
+import org.apache.hadoop.mapreduce.lib.output.MapFileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.input.SequenceFileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
+import org.apache.hadoop.mapreduce.Partitioner;
+import org.apache.hadoop.mapreduce.lib.partition.HashPartitioner;
 import org.apache.hadoop.util.*;
 import org.apache.hadoop.conf.Configuration;
 
@@ -79,7 +87,7 @@ public class LinkDbReader extends Configured implements Tool, Closeable {
 
     if (readers == null) {
       synchronized (this) {
-        readers = MapFileOutputFormat.getReaders(fs, new Path(directory,
+        readers = MapFileOutputFormat.getReaders(new Path(directory,
             LinkDb.CURRENT_NAME), getConf());
       }
     }
@@ -96,18 +104,19 @@ public class LinkDbReader extends Configured implements Tool, Closeable {
     }
   }
   
-  public static class LinkDBDumpMapper implements Mapper<Text, Inlinks, Text, Inlinks> {
+  public static class LinkDBDumpMapper extends Mapper<Text, Inlinks, Text, Inlinks> {
     Pattern pattern = null;
     Matcher matcher = null;
     
-    public void configure(JobConf job) {
-      if (job.get("linkdb.regex", null) != null) {
-        pattern = Pattern.compile(job.get("linkdb.regex"));
+    public void configure(Job job) {
+      Configuration conf = job.getConfiguration();
+      if (conf.get("linkdb.regex", null) != null) {
+        pattern = Pattern.compile(conf.get("linkdb.regex"));
       }
     }
 
     public void close() {}
-    public void map(Text key, Inlinks value, OutputCollector<Text, Inlinks> output, Reporter reporter)
+    public void map(Text key, Inlinks value, Context context)
             throws IOException {
 
       if (pattern != null) {
@@ -117,7 +126,7 @@ public class LinkDbReader extends Configured implements Tool, Closeable {
         }
       }
 
-      output.collect(key, value);
+      context.write(key, value);
     }
   }
 
@@ -130,23 +139,25 @@ public class LinkDbReader extends Configured implements Tool, Closeable {
     }
     Path outFolder = new Path(output);
 
-    JobConf job = new NutchJob(getConf());
+    Job job = new NutchJob(getConf());
     job.setJobName("read " + linkdb);
     
+    Configuration conf = job.getConfiguration();   
+ 
     if (regex != null) {
-      job.set("linkdb.regex", regex);
+      conf.set("linkdb.regex", regex);
       job.setMapperClass(LinkDBDumpMapper.class);
     }
 
     FileInputFormat.addInputPath(job, new Path(linkdb, LinkDb.CURRENT_NAME));
-    job.setInputFormat(SequenceFileInputFormat.class);
+    job.setInputFormatClass(SequenceFileInputFormat.class);
 
     FileOutputFormat.setOutputPath(job, outFolder);
-    job.setOutputFormat(TextOutputFormat.class);
+    job.setOutputFormatClass(TextOutputFormat.class);
     job.setOutputKeyClass(Text.class);
     job.setOutputValueClass(Inlinks.class);
 
-    JobClient.runJob(job);
+    int complete = job.waitForCompletion(true)?0:1;
 
     long end = System.currentTimeMillis();
     LOG.info("LinkDb dump: finished at " + sdf.format(end) + ", elapsed: "

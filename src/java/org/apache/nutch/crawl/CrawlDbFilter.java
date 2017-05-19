@@ -23,10 +23,9 @@ import java.lang.invoke.MethodHandles;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.hadoop.io.Text;
-import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.mapred.Mapper;
-import org.apache.hadoop.mapred.OutputCollector;
-import org.apache.hadoop.mapred.Reporter;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.nutch.net.URLFilters;
 import org.apache.nutch.net.URLNormalizers;
 
@@ -36,7 +35,7 @@ import org.apache.nutch.net.URLNormalizers;
  * 
  * @author Andrzej Bialecki
  */
-public class CrawlDbFilter implements
+public class CrawlDbFilter extends
     Mapper<Text, CrawlDatum, Text, CrawlDatum> {
   public static final String URL_FILTERING = "crawldb.url.filters";
 
@@ -59,17 +58,18 @@ public class CrawlDbFilter implements
   private static final Logger LOG = LoggerFactory
       .getLogger(MethodHandles.lookup().lookupClass());
 
-  public void configure(JobConf job) {
-    urlFiltering = job.getBoolean(URL_FILTERING, false);
-    urlNormalizers = job.getBoolean(URL_NORMALIZING, false);
-    url404Purging = job.getBoolean(CrawlDb.CRAWLDB_PURGE_404, false);
+  public void configure(Job job) {
+    Configuration conf = job.getConfiguration();
+    urlFiltering = conf.getBoolean(URL_FILTERING, false);
+    urlNormalizers = conf.getBoolean(URL_NORMALIZING, false);
+    url404Purging = conf.getBoolean(CrawlDb.CRAWLDB_PURGE_404, false);
 
     if (urlFiltering) {
-      filters = new URLFilters(job);
+      filters = new URLFilters(conf);
     }
     if (urlNormalizers) {
-      scope = job.get(URL_NORMALIZING_SCOPE, URLNormalizers.SCOPE_CRAWLDB);
-      normalizers = new URLNormalizers(job, scope);
+      scope = conf.get(URL_NORMALIZING_SCOPE, URLNormalizers.SCOPE_CRAWLDB);
+      normalizers = new URLNormalizers(conf, scope);
     }
   }
 
@@ -79,8 +79,7 @@ public class CrawlDbFilter implements
   private Text newKey = new Text();
 
   public void map(Text key, CrawlDatum value,
-      OutputCollector<Text, CrawlDatum> output, Reporter reporter)
-      throws IOException {
+      Context context) throws IOException {
 
     String url = key.toString();
 
@@ -107,7 +106,7 @@ public class CrawlDbFilter implements
     }
     if (url != null) { // if it passes
       newKey.set(url); // collect it
-      output.collect(newKey, value);
+      context.write(newKey, value);
     }
   }
 }

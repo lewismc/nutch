@@ -30,7 +30,13 @@ import org.apache.hadoop.io.*;
 import org.apache.hadoop.fs.*;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.conf.*;
-import org.apache.hadoop.mapred.*;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.lib.input.SequenceFileInputFormat;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.output.MapFileOutputFormat;
+import org.apache.hadoop.mapreduce.Mapper.Context;
 import org.apache.hadoop.util.*;
 import org.apache.nutch.metadata.Nutch;
 import org.apache.nutch.net.URLFilters;
@@ -69,16 +75,17 @@ public class LinkDb extends NutchTool implements Tool,
     setConf(conf);
   }
 
-  public void configure(JobConf job) {
-    maxAnchorLength = job.getInt("linkdb.max.anchor.length", 100);
-    ignoreInternalLinks = job.getBoolean(IGNORE_INTERNAL_LINKS, true);
-    ignoreExternalLinks = job.getBoolean(IGNORE_EXTERNAL_LINKS, false);
+  public void configure(Job job) {
+    Configuration conf = job.getConfiguration();
+    maxAnchorLength = conf.getInt("linkdb.max.anchor.length", 100);
+    ignoreInternalLinks = conf.getBoolean(IGNORE_INTERNAL_LINKS, true);
+    ignoreExternalLinks = conf.getBoolean(IGNORE_EXTERNAL_LINKS, false);
 
-    if (job.getBoolean(LinkDbFilter.URL_FILTERING, false)) {
-      urlFilters = new URLFilters(job);
+    if (conf.getBoolean(LinkDbFilter.URL_FILTERING, false)) {
+      urlFilters = new URLFilters(conf);
     }
-    if (job.getBoolean(LinkDbFilter.URL_NORMALIZING, false)) {
-      urlNormalizers = new URLNormalizers(job, URLNormalizers.SCOPE_LINKDB);
+    if (conf.getBoolean(LinkDbFilter.URL_NORMALIZING, false)) {
+      urlNormalizers = new URLNormalizers(conf, URLNormalizers.SCOPE_LINKDB);
     }
   }
 
@@ -86,7 +93,7 @@ public class LinkDb extends NutchTool implements Tool,
   }
 
   public void map(Text key, ParseData parseData,
-      OutputCollector<Text, Inlinks> output, Reporter reporter)
+      Context context)
       throws IOException {
     String fromUrl = key.toString();
     String fromHost = getHost(fromUrl);
@@ -153,7 +160,7 @@ public class LinkDb extends NutchTool implements Tool,
         anchor = anchor.substring(0, maxAnchorLength);
       }
       inlinks.add(new Inlink(fromUrl, anchor)); // collect inverted link
-      output.collect(new Text(toUrl), inlinks);
+      context.write(new Text(toUrl), inlinks);
     }
   }
 
@@ -175,11 +182,12 @@ public class LinkDb extends NutchTool implements Tool,
 
   public void invert(Path linkDb, Path[] segments, boolean normalize,
       boolean filter, boolean force) throws IOException {
-    JobConf job = LinkDb.createJob(getConf(), linkDb, normalize, filter);
+    Job job = LinkDb.createJob(getConf(), linkDb, normalize, filter);
     Path lock = new Path(linkDb, LOCK_NAME);
     FileSystem fs = linkDb.getFileSystem(getConf());
     LockUtil.createLockFile(fs, lock, force);
     Path currentLinkDb = new Path(linkDb, CURRENT_NAME);
+    Configuration conf = job.getConfiguration();
 
     SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
     long start = System.currentTimeMillis();
@@ -188,15 +196,15 @@ public class LinkDb extends NutchTool implements Tool,
       LOG.info("LinkDb: linkdb: " + linkDb);
       LOG.info("LinkDb: URL normalize: " + normalize);
       LOG.info("LinkDb: URL filter: " + filter);
-      if (job.getBoolean(IGNORE_INTERNAL_LINKS, true)) {
+      if (conf.getBoolean(IGNORE_INTERNAL_LINKS, true)) {
         LOG.info("LinkDb: internal links will be ignored.");
       }
-      if (job.getBoolean(IGNORE_EXTERNAL_LINKS, false)) {
+      if (conf.getBoolean(IGNORE_EXTERNAL_LINKS, false)) {
         LOG.info("LinkDb: external links will be ignored.");
       }
     }
-    if (job.getBoolean(IGNORE_INTERNAL_LINKS, true)
-        && job.getBoolean(IGNORE_EXTERNAL_LINKS, false)) {
+    if (conf.getBoolean(IGNORE_INTERNAL_LINKS, true)
+        && conf.getBoolean(IGNORE_EXTERNAL_LINKS, false)) {
       LOG.warn("LinkDb: internal and external links are ignored! "
           + "Nothing to do, actually. Exiting.");
       LockUtil.removeLockFile(fs, lock);
@@ -211,7 +219,7 @@ public class LinkDb extends NutchTool implements Tool,
           ParseData.DIR_NAME));
     }
     try {
-      JobClient.runJob(job);
+      int complete = job.waitForCompletion(true)?0:1;
     } catch (IOException e) {
       LockUtil.removeLockFile(fs, lock);
       throw e;
@@ -226,7 +234,7 @@ public class LinkDb extends NutchTool implements Tool,
       FileInputFormat.addInputPath(job, currentLinkDb);
       FileInputFormat.addInputPath(job, newLinkDb);
       try {
-        JobClient.runJob(job);
+        int complete = job.waitForCompletion(true)?0:1;
       } catch (IOException e) {
         LockUtil.removeLockFile(fs, lock);
         fs.delete(newLinkDb, true);
@@ -241,15 +249,16 @@ public class LinkDb extends NutchTool implements Tool,
         + TimingUtil.elapsedTime(start, end));
   }
 
-  private static JobConf createJob(Configuration config, Path linkDb,
+  private static Job createJob(Configuration config, Path linkDb,
       boolean normalize, boolean filter) {
     Path newLinkDb = new Path(linkDb,
         Integer.toString(new Random().nextInt(Integer.MAX_VALUE)));
 
-    JobConf job = new NutchJob(config);
+    Job job = new NutchJob(config);
+    Configuration conf = job.getConfiguration();
     job.setJobName("linkdb " + linkDb);
 
-    job.setInputFormat(SequenceFileInputFormat.class);
+    job.setInputFormatClass(SequenceFileInputFormat.class);
 
     job.setMapperClass(LinkDb.class);
     job.setCombinerClass(LinkDbMerger.class);
@@ -258,27 +267,29 @@ public class LinkDb extends NutchTool implements Tool,
       try {
         FileSystem fs = linkDb.getFileSystem(config);
         if (!fs.exists(linkDb)) {
-          job.setBoolean(LinkDbFilter.URL_FILTERING, filter);
-          job.setBoolean(LinkDbFilter.URL_NORMALIZING, normalize);
+          conf.setBoolean(LinkDbFilter.URL_FILTERING, filter);
+          conf.setBoolean(LinkDbFilter.URL_NORMALIZING, normalize);
         }
       } catch (Exception e) {
         LOG.warn("LinkDb createJob: " + e);
       }
     }
-    job.setReducerClass(LinkDbMerger.class);
+    job.setJarByClass(LinkDbMerger.class);
+    job.setReducerClass(LinkDbMergeReducer.class);
 
     FileOutputFormat.setOutputPath(job, newLinkDb);
-    job.setOutputFormat(MapFileOutputFormat.class);
-    job.setBoolean("mapred.output.compress", true);
+    job.setOutputFormatClass(MapFileOutputFormat.class);
+    conf.setBoolean("mapred.output.compress", true);
     job.setOutputKeyClass(Text.class);
     job.setOutputValueClass(Inlinks.class);
 
     return job;
   }
 
-  public static void install(JobConf job, Path linkDb) throws IOException {
+  public static void install(Job job, Path linkDb) throws IOException {
+    Configuration conf = job.getConfiguration();
     Path newLinkDb = FileOutputFormat.getOutputPath(job);
-    FileSystem fs = linkDb.getFileSystem(job);
+    FileSystem fs = linkDb.getFileSystem(conf);
     Path old = new Path(linkDb, "old");
     Path current = new Path(linkDb, CURRENT_NAME);
     if (fs.exists(current)) {

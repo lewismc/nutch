@@ -47,10 +47,18 @@ import org.apache.hadoop.io.MapFile;
 import org.apache.hadoop.io.SequenceFile;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
-import org.apache.hadoop.mapreduce.*;
-import org.apache.hadoop.mapreduce.lib.input.*;
-import org.apache.hadoop.mapreduce.lib.output.*;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.lib.output.SequenceFileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.output.MapFileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
+import org.apache.hadoop.mapreduce.lib.input.SequenceFileInputFormat;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.partition.HashPartitioner;
 import org.apache.hadoop.mapreduce.Mapper.Context;
+import org.apache.hadoop.mapreduce.RecordWriter;
 import org.apache.hadoop.util.Progressable;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
@@ -241,7 +249,7 @@ public class CrawlDbReader extends Configured implements Closeable, Tool {
       val.set(0L);
       String k = key.toString();
       if (k.equals("sc") || k.equals("ft") || k.equals("fi")) {
-        reduceMinMaxTotal(k, values, output, reporter);
+        reduceMinMaxTotal(k, values, context);
       } else {
         while (values.hasNext()) {
           LongWritable cnt = values.next();
@@ -347,7 +355,7 @@ public class CrawlDbReader extends Configured implements Closeable, Tool {
 
     public void configure(Job job) {
       Configuration conf = job.getConfiguration();
-      topN = conf.getLong("db.reader.topn", 100) / conf.getNumReduceTasks();
+      topN = conf.getLong("db.reader.topn", 100) / job.getNumReduceTasks();
     }
 
     public void close() {
@@ -555,7 +563,7 @@ public class CrawlDbReader extends Configured implements Closeable, Tool {
     Expression expr = null;
 
     public void configure(Job job) {
-      Configure config = job.getConfiguration();
+      Configuration config = job.getConfiguration();
       if (config.get("regex", null) != null) {
         pattern = Pattern.compile(config.get("regex"));
       }
@@ -624,7 +632,7 @@ public class CrawlDbReader extends Configured implements Closeable, Tool {
     FileInputFormat.addInputPath(job, new Path(crawlDb, CrawlDb.CURRENT_NAME));
     job.setInputFormatClass(SequenceFileInputFormat.class);
     job.setMapperClass(CrawlDbTopNMapper.class);
-    job.setReducerClass(IdentityReducer.class);
+    job.setReducerClass(Reducer.class);
 
     FileOutputFormat.setOutputPath(job, tempDir);
     job.setOutputFormatClass(SequenceFileOutputFormat.class);
@@ -643,7 +651,7 @@ public class CrawlDbReader extends Configured implements Closeable, Tool {
 
     FileInputFormat.addInputPath(job, tempDir);
     job.setInputFormatClass(SequenceFileInputFormat.class);
-    job.setMapperClass(IdentityMapper.class);
+    job.setMapperClass(Mapper.class);
     job.setReducerClass(CrawlDbTopNReducer.class);
 
     FileOutputFormat.setOutputPath(job, outFolder);
@@ -653,7 +661,7 @@ public class CrawlDbReader extends Configured implements Closeable, Tool {
 
     job.setNumReduceTasks(1); // create a single file.
 
-    int complete = job.waitForCompletion(true)?0:1;
+    complete = job.waitForCompletion(true)?0:1;
     FileSystem fs = tempDir.getFileSystem(config);
     fs.delete(tempDir, true);
     if (LOG.isInfoEnabled()) {
@@ -841,7 +849,7 @@ public class CrawlDbReader extends Configured implements Closeable, Tool {
       if (args.containsKey("expr")) {
         expr = args.get("expr");
       }
-      processDumpJob(crawlDb, output, new NutchJob(conf), format, regex, status, retry, expr);
+      processDumpJob(crawlDb, output, conf, format, regex, status, retry, expr);
       File dumpFile = new File(output+"/part-00000");
       return dumpFile;		  
     }

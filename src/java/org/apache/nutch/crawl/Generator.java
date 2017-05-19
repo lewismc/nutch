@@ -29,10 +29,16 @@ import org.slf4j.LoggerFactory;
 import org.apache.commons.jexl2.Expression;
 import org.apache.hadoop.io.*;
 import org.apache.hadoop.conf.*;
-import org.apache.hadoop.mapreduce.*;
-import org.apache.hadoop.mapreduce.lib.input.*;
-import org.apache.hadoop.mapreduce.lib.output.*;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.MapFileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.output.SequenceFileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.input.SequenceFileInputFormat;
 import org.apache.hadoop.mapreduce.Mapper.Context;
+import org.apache.hadoop.mapreduce.Partitioner;
 import org.apache.hadoop.util.*;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
@@ -123,7 +129,7 @@ public class Generator extends NutchTool implements Tool {
     private int segCounts[];
     private int maxCount;
     private boolean byDomain = false;
-    private Partitioner<Text, Writable> partitioner = new URLPartitioner();
+    private URLPartitioner partitioner = new URLPartitioner();
     private URLFilters filters;
     private URLNormalizers normalizers;
     private ScoringFilters scfilters;
@@ -144,7 +150,7 @@ public class Generator extends NutchTool implements Tool {
       Configuration conf = job.getConfiguration();
       curTime = conf.getLong(GENERATOR_CUR_TIME, System.currentTimeMillis());
       limit = conf.getLong(GENERATOR_TOP_N, Long.MAX_VALUE)
-          / conf.getNumReduceTasks();
+          / job.getNumReduceTasks();
       maxCount = conf.getInt(GENERATOR_MAX_COUNT, -1);
       if (maxCount == -1) {
         byDomain = false;
@@ -157,7 +163,7 @@ public class Generator extends NutchTool implements Tool {
         normalizers = new URLNormalizers(conf,
             URLNormalizers.SCOPE_GENERATE_HOST_COUNT);
       scfilters = new ScoringFilters(conf);
-      partitioner.configure(conf);
+      partitioner.configure(job);
       filter = conf.getBoolean(GENERATOR_FILTER, true);
       genDelay = conf.getLong(GENERATOR_DELAY, 7L) * 3600L * 24L * 1000L;
       long time = conf.getLong(Nutch.GENERATE_TIME_KEY, 0L);
@@ -176,9 +182,10 @@ public class Generator extends NutchTool implements Tool {
     }
 
     /** Select and invert subset due for fetch. */
+
     public void map(Text key, CrawlDatum value,
-        Context context)
-        throws IOException {
+		Context context)
+		throws IOException {
       Text url = key;
       if (filter) {
         // If filtering is on don't generate URLs that don't pass
@@ -561,7 +568,7 @@ public class Generator extends NutchTool implements Tool {
     Configuration conf = job.getConfiguration();
 
     if (numLists == -1) { // for politeness make
-      numLists = conf.getNumMapTasks(); // a partition per fetch task
+      numLists = job.getNumMapTasks(); // a partition per fetch task
     }
     if ("local".equals(conf.get("mapreduce.framework.name")) && numLists != 1) {
       // override
@@ -594,7 +601,7 @@ public class Generator extends NutchTool implements Tool {
     job.setOutputFormatClass(GeneratorOutputFormat.class);
 
     try {
-      int complete = job.waitForCompletion()?0:1;
+      int complete = job.waitForCompletion(true)?0:1;
     } catch (IOException e) {
       LockUtil.removeLockFile(getConf(), lock);
       fs.delete(tempDir, true);
@@ -649,7 +656,7 @@ public class Generator extends NutchTool implements Tool {
       job.setOutputValueClass(CrawlDatum.class);
       FileOutputFormat.setOutputPath(job, tempDir2);
       try {
-        JobClient.runJob(job);
+        int complete = job.waitForCompletion(true)?0:1;
         CrawlDb.install(job, dbDir);
       } catch (IOException e) {
         LockUtil.removeLockFile(getConf(), lock);
@@ -703,7 +710,6 @@ public class Generator extends NutchTool implements Tool {
     job.setOutputValueClass(CrawlDatum.class);
     job.setOutputKeyComparatorClass(HashComparator.class);
     int complete = job.waitForCompletion(true)?0:1;
-    JobClient.runJob(job);
     return segment;
   }
 

@@ -30,15 +30,13 @@ import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Text;
-import org.apache.hadoop.mapred.FileInputFormat;
-import org.apache.hadoop.mapred.FileOutputFormat;
-import org.apache.hadoop.mapred.JobClient;
-import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.mapred.MapFileOutputFormat;
-import org.apache.hadoop.mapred.OutputCollector;
-import org.apache.hadoop.mapred.Reducer;
-import org.apache.hadoop.mapred.Reporter;
-import org.apache.hadoop.mapred.SequenceFileInputFormat;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.Mapper.Context;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.output.MapFileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.input.SequenceFileInputFormat;
 import org.apache.hadoop.util.StringUtils;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
@@ -68,8 +66,7 @@ import org.apache.nutch.util.TimingUtil;
  * 
  * @author Andrzej Bialecki
  */
-public class LinkDbMerger extends Configured implements Tool,
-    Reducer<Text, Inlinks, Text, Inlinks> {
+public class LinkDbMerger extends Configured implements Tool {
   private static final Logger LOG = LoggerFactory
       .getLogger(MethodHandles.lookup().lookupClass());
 
@@ -83,30 +80,33 @@ public class LinkDbMerger extends Configured implements Tool,
     setConf(conf);
   }
 
-  public void reduce(Text key, Iterator<Inlinks> values,
-      OutputCollector<Text, Inlinks> output, Reporter reporter)
-      throws IOException {
+  public static class LinkDbMergeReducer extends 
+      Reducer<Text, Inlinks, Text, Inlinks> {
+    public void reduce(Text key, Iterator<Inlinks> values, Context context)
+        throws IOException {
 
-    Inlinks result = new Inlinks();
+      Inlinks result = new Inlinks();
 
-    while (values.hasNext()) {
-      Inlinks inlinks = values.next();
+      while (values.hasNext()) {
+        Inlinks inlinks = values.next();
 
-      int end = Math.min(maxInlinks - result.size(), inlinks.size());
-      Iterator<Inlink> it = inlinks.iterator();
-      int i = 0;
-      while (it.hasNext() && i++ < end) {
-        result.add(it.next());
+        int end = Math.min(maxInlinks - result.size(), inlinks.size());
+        Iterator<Inlink> it = inlinks.iterator();
+        int i = 0;
+        while (it.hasNext() && i++ < end) {
+          result.add(it.next());
+        }
       }
-    }
-    if (result.size() == 0)
-      return;
-    output.collect(key, result);
+      if (result.size() == 0)
+        return;
+      context.write(key, result);
 
+    }
   }
 
-  public void configure(JobConf job) {
-    maxInlinks = job.getInt("linkdb.max.inlinks", 10000);
+  public void configure(Job job) {
+    Configuration conf = job.getConfiguration();
+    maxInlinks = conf.getInt("linkdb.max.inlinks", 10000);
   }
 
   public void close() throws IOException {
@@ -118,11 +118,11 @@ public class LinkDbMerger extends Configured implements Tool,
     long start = System.currentTimeMillis();
     LOG.info("LinkDb merge: starting at " + sdf.format(start));
 
-    JobConf job = createMergeJob(getConf(), output, normalize, filter);
+    Job job = createMergeJob(getConf(), output, normalize, filter);
     for (int i = 0; i < dbs.length; i++) {
       FileInputFormat.addInputPath(job, new Path(dbs[i], LinkDb.CURRENT_NAME));
     }
-    JobClient.runJob(job);
+    int complete = job.waitForCompletion(true)?0:1;
     FileSystem fs = output.getFileSystem(getConf());
     fs.mkdirs(output);
     fs.rename(FileOutputFormat.getOutputPath(job), new Path(output,
@@ -133,29 +133,30 @@ public class LinkDbMerger extends Configured implements Tool,
         + TimingUtil.elapsedTime(start, end));
   }
 
-  public static JobConf createMergeJob(Configuration config, Path linkDb,
+  public static Job createMergeJob(Configuration config, Path linkDb,
       boolean normalize, boolean filter) {
     Path newLinkDb = new Path(linkDb,
         "merge-" + Integer.toString(new Random().nextInt(Integer.MAX_VALUE)));
 
-    JobConf job = new NutchJob(config);
+    NutchJob job = new NutchJob(config);
     job.setJobName("linkdb merge " + linkDb);
 
-    job.setInputFormat(SequenceFileInputFormat.class);
+    Configuration conf = job.getConfiguration();
+    job.setInputFormatClass(SequenceFileInputFormat.class);
 
     job.setMapperClass(LinkDbFilter.class);
-    job.setBoolean(LinkDbFilter.URL_NORMALIZING, normalize);
-    job.setBoolean(LinkDbFilter.URL_FILTERING, filter);
+    conf.setBoolean(LinkDbFilter.URL_NORMALIZING, normalize);
+    conf.setBoolean(LinkDbFilter.URL_FILTERING, filter);
     job.setReducerClass(LinkDbMerger.class);
 
     FileOutputFormat.setOutputPath(job, newLinkDb);
-    job.setOutputFormat(MapFileOutputFormat.class);
-    job.setBoolean("mapred.output.compress", true);
+    job.setOutputFormatClass(MapFileOutputFormat.class);
+    conf.setBoolean("mapred.output.compress", true);
     job.setOutputKeyClass(Text.class);
     job.setOutputValueClass(Inlinks.class);
 
     // https://issues.apache.org/jira/browse/NUTCH-1069
-    job.setBoolean("mapreduce.fileoutputcommitter.marksuccessfuljobs", false);
+    conf.setBoolean("mapreduce.fileoutputcommitter.marksuccessfuljobs", false);
 
     return job;
   }
