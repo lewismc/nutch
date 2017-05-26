@@ -70,7 +70,7 @@ public class LinkDbMerger extends Configured implements Tool {
   private static final Logger LOG = LoggerFactory
       .getLogger(MethodHandles.lookup().lookupClass());
 
-  private int maxInlinks;
+  private static int maxInlinks;
 
   public LinkDbMerger() {
 
@@ -147,7 +147,8 @@ public class LinkDbMerger extends Configured implements Tool {
     job.setMapperClass(LinkDbFilter.class);
     conf.setBoolean(LinkDbFilter.URL_NORMALIZING, normalize);
     conf.setBoolean(LinkDbFilter.URL_FILTERING, filter);
-    job.setReducerClass(LinkDbMerger.class);
+    job.setJarByClass(LinkDbMerger.class);
+    job.setReducerClass(LinkDbMergeReducer.class);
 
     FileOutputFormat.setOutputPath(job, newLinkDb);
     job.setOutputFormatClass(MapFileOutputFormat.class);

@@ -59,6 +59,7 @@ import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.partition.HashPartitioner;
 import org.apache.hadoop.mapreduce.Mapper.Context;
 import org.apache.hadoop.mapreduce.RecordWriter;
+import org.apache.hadoop.mapreduce.TaskAttemptContext;
 import org.apache.hadoop.util.Progressable;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
@@ -90,7 +91,7 @@ public class CrawlDbReader extends Configured implements Closeable, Tool {
       return;
     Path crawlDbPath = new Path(crawlDb, CrawlDb.CURRENT_NAME);
     FileSystem fs = crawlDbPath.getFileSystem(config);
-    readers = MapFileOutputFormat.getReaders(fs, crawlDbPath, config);
+    readers = MapFileOutputFormat.getReaders(crawlDbPath, config);
   }
 
   private void closeReaders() {
@@ -162,15 +163,16 @@ public class CrawlDbReader extends Configured implements Closeable, Tool {
         out.writeByte('\n');
       }
 
-      public synchronized void close(Context context) throws IOException {
+      public synchronized void close(TaskAttemptContext context) throws IOException {
         out.close();
       }
     }
 
-    public RecordWriter<Text, CrawlDatum> getRecordWriter(FileSystem fs,
-        Job job, String name, Progressable progress) throws IOException {
-      Path dir = FileOutputFormat.getOutputPath(job);
-      DataOutputStream fileOut = fs.create(new Path(dir, name), progress);
+    public RecordWriter<Text, CrawlDatum> getRecordWriter(TaskAttemptContext
+        context) throws IOException {
+      Path dir = FileOutputFormat.getOutputPath(context);
+      FileSystem fs = dir.getFileSystem(context.getConfiguration());
+      DataOutputStream fileOut = fs.create(new Path(dir, name), context);
       return new LineRecordWriter(fileOut);
     }
   }

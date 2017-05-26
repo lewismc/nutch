@@ -114,37 +114,33 @@ public class Generator extends NutchTool implements Tool {
       return "url=" + url.toString() + ", datum=" + datum.toString()
           + ", segnum=" + segnum.toString();
     }
-  }
+ }
 
   /** Selects entries due for fetch. */
-  public static class Selector implements
-      Mapper<Text, CrawlDatum, FloatWritable, SelectorEntry>,
-      Partitioner<FloatWritable, Writable>,
-      Reducer<FloatWritable, SelectorEntry, FloatWritable, SelectorEntry> {
-    private LongWritable genTime = new LongWritable(System.currentTimeMillis());
-    private long curTime;
-    private long limit;
-    private long count;
-    private HashMap<String, int[]> hostCounts = new HashMap<>();
-    private int segCounts[];
-    private int maxCount;
-    private boolean byDomain = false;
+  public static class Selector extends
+      Partitioner<FloatWritable, Writable> {
+    private static LongWritable genTime = new LongWritable(System.currentTimeMillis());
+    private static long curTime;
+    private static long limit;
+    private static int segCounts[];
+    private static int maxCount;
+    private static boolean byDomain = false;
+    private static URLFilters filters;
+    private static URLNormalizers normalizers;
+    private static ScoringFilters scfilters;
+    private static SelectorEntry entry = new SelectorEntry();
+    private static FloatWritable sortValue = new FloatWritable();
+    private static boolean filter;
+    private static boolean normalise;
+    private static long genDelay;
+    private static FetchSchedule schedule;
+    private static float scoreThreshold = 0f;
+    private static int intervalThreshold = -1;
+    private static String restrictStatus = null;
+    private static int maxNumSegments = 1;
+    private static Expression expr = null;
+
     private URLPartitioner partitioner = new URLPartitioner();
-    private URLFilters filters;
-    private URLNormalizers normalizers;
-    private ScoringFilters scfilters;
-    private SelectorEntry entry = new SelectorEntry();
-    private FloatWritable sortValue = new FloatWritable();
-    private boolean filter;
-    private boolean normalise;
-    private long genDelay;
-    private FetchSchedule schedule;
-    private float scoreThreshold = 0f;
-    private int intervalThreshold = -1;
-    private String restrictStatus = null;
-    private int maxNumSegments = 1;
-    private Expression expr = null;
-    private int currentsegmentnum = 1;
 
     public void configure(Job job) {
       Configuration conf = job.getConfiguration();
@@ -183,77 +179,81 @@ public class Generator extends NutchTool implements Tool {
 
     /** Select and invert subset due for fetch. */
 
-    public void map(Text key, CrawlDatum value,
-		Context context)
-		throws IOException {
-      Text url = key;
-      if (filter) {
-        // If filtering is on don't generate URLs that don't pass
-        // URLFilters
-        try {
-          if (filters.filter(url.toString()) == null)
-            return;
-        } catch (URLFilterException e) {
-          if (LOG.isWarnEnabled()) {
-            LOG.warn("Couldn't filter url: " + url + " (" + e.getMessage()
-                + ")");
+    public static class SelectorMapper extends
+       Mapper<Text, CrawlDatum, FloatWritable, SelectorEntry> {
+      
+      public void map(Text key, CrawlDatum value,
+          	Context context)
+          	throws IOException {
+        Text url = key;
+        if (filter) {
+          // If filtering is on don't generate URLs that don't pass
+          // URLFilters
+          try {
+            if (filters.filter(url.toString()) == null)
+              return;
+          } catch (URLFilterException e) {
+            if (LOG.isWarnEnabled()) {
+              LOG.warn("Couldn't filter url: " + url + " (" + e.getMessage()
+                  + ")");
+            }
           }
         }
-      }
-      CrawlDatum crawlDatum = value;
+        CrawlDatum crawlDatum = value;
 
-      // check fetch schedule
-      if (!schedule.shouldFetch(url, crawlDatum, curTime)) {
-        LOG.debug("-shouldFetch rejected '" + url + "', fetchTime="
-            + crawlDatum.getFetchTime() + ", curTime=" + curTime);
-        return;
-      }
-
-      LongWritable oldGenTime = (LongWritable) crawlDatum.getMetaData().get(
-          Nutch.WRITABLE_GENERATE_TIME_KEY);
-      if (oldGenTime != null) { // awaiting fetch & update
-        if (oldGenTime.get() + genDelay > curTime) // still wait for
-          // update
-          return;
-      }
-      float sort = 1.0f;
-      try {
-        sort = scfilters.generatorSortValue(key, crawlDatum, sort);
-      } catch (ScoringFilterException sfe) {
-        if (LOG.isWarnEnabled()) {
-          LOG.warn("Couldn't filter generatorSortValue for " + key + ": " + sfe);
-        }
-      }
-      
-      // check expr
-      if (expr != null) {
-        if (!crawlDatum.evaluate(expr)) {
+        // check fetch schedule
+        if (!schedule.shouldFetch(url, crawlDatum, curTime)) {
+          LOG.debug("-shouldFetch rejected '" + url + "', fetchTime="
+              + crawlDatum.getFetchTime() + ", curTime=" + curTime);
           return;
         }
+
+        LongWritable oldGenTime = (LongWritable) crawlDatum.getMetaData().get(
+            Nutch.WRITABLE_GENERATE_TIME_KEY);
+        if (oldGenTime != null) { // awaiting fetch & update
+          if (oldGenTime.get() + genDelay > curTime) // still wait for
+            // update
+            return;
+        }
+        float sort = 1.0f;
+        try {
+          sort = scfilters.generatorSortValue(key, crawlDatum, sort);
+        } catch (ScoringFilterException sfe) {
+          if (LOG.isWarnEnabled()) {
+            LOG.warn("Couldn't filter generatorSortValue for " + key + ": " + sfe);
+          }
+        }
+        
+        // check expr
+        if (expr != null) {
+          if (!crawlDatum.evaluate(expr)) {
+            return;
+          }
+        }
+
+        if (restrictStatus != null
+            && !restrictStatus.equalsIgnoreCase(CrawlDatum
+                .getStatusName(crawlDatum.getStatus())))
+          return;
+
+        // consider only entries with a score superior to the threshold
+        if (scoreThreshold != Float.NaN && sort < scoreThreshold)
+          return;
+
+        // consider only entries with a retry (or fetch) interval lower than
+        // threshold
+        if (intervalThreshold != -1
+            && crawlDatum.getFetchInterval() > intervalThreshold)
+          return;
+
+        // sort by decreasing score, using DecreasingFloatComparator
+        sortValue.set(sort);
+        // record generation time
+        crawlDatum.getMetaData().put(Nutch.WRITABLE_GENERATE_TIME_KEY, genTime);
+        entry.datum = crawlDatum;
+        entry.url = key;
+        context.write(sortValue, entry); // invert for sort by score
       }
-
-      if (restrictStatus != null
-          && !restrictStatus.equalsIgnoreCase(CrawlDatum
-              .getStatusName(crawlDatum.getStatus())))
-        return;
-
-      // consider only entries with a score superior to the threshold
-      if (scoreThreshold != Float.NaN && sort < scoreThreshold)
-        return;
-
-      // consider only entries with a retry (or fetch) interval lower than
-      // threshold
-      if (intervalThreshold != -1
-          && crawlDatum.getFetchInterval() > intervalThreshold)
-        return;
-
-      // sort by decreasing score, using DecreasingFloatComparator
-      sortValue.set(sort);
-      // record generation time
-      crawlDatum.getMetaData().put(Nutch.WRITABLE_GENERATE_TIME_KEY, genTime);
-      entry.datum = crawlDatum;
-      entry.url = key;
-      context.write(sortValue, entry); // invert for sort by score
     }
 
     /** Partition by host / domain or IP. */
@@ -264,98 +264,105 @@ public class Generator extends NutchTool implements Tool {
     }
 
     /** Collect until limit is reached. */
-    public void reduce(FloatWritable key, Iterator<SelectorEntry> values,
-        Context context)
-        throws IOException {
+    public static class SelectorReducer extends
+       Reducer<FloatWritable, SelectorEntry, FloatWritable, SelectorEntry> {
+ 
+      private HashMap<String, int[]> hostCounts = new HashMap<>();
+      private long count;
+      private int currentsegmentnum = 1;
 
-      while (values.hasNext()) {
+      public void reduce(FloatWritable key, Iterator<SelectorEntry> values,
+          Context context)
+          throws IOException {
+        while (values.hasNext()) {
 
-        if (count == limit) {
-          // do we have any segments left?
-          if (currentsegmentnum < maxNumSegments) {
-            count = 0;
-            currentsegmentnum++;
-          } else
-            break;
-        }
-
-        SelectorEntry entry = values.next();
-        Text url = entry.url;
-        String urlString = url.toString();
-        URL u = null;
-
-        String hostordomain = null;
-
-        try {
-          if (normalise && normalizers != null) {
-            urlString = normalizers.normalize(urlString,
-                URLNormalizers.SCOPE_GENERATE_HOST_COUNT);
-          }
-          u = new URL(urlString);
-          if (byDomain) {
-            hostordomain = URLUtil.getDomainName(u);
-          } else {
-            hostordomain = new URL(urlString).getHost();
-          }
-        } catch (Exception e) {
-          LOG.warn("Malformed URL: '" + urlString + "', skipping ("
-              + StringUtils.stringifyException(e) + ")");
-          context.getCounter("Generator", "MALFORMED_URL").increment(1);
-          continue;
-        }
-
-        hostordomain = hostordomain.toLowerCase();
-
-        // only filter if we are counting hosts or domains
-        if (maxCount > 0) {
-          int[] hostCount = hostCounts.get(hostordomain);
-          if (hostCount == null) {
-            hostCount = new int[] { 1, 0 };
-            hostCounts.put(hostordomain, hostCount);
+          if (count == limit) {
+            // do we have any segments left?
+            if (currentsegmentnum < maxNumSegments) {
+              count = 0;
+              currentsegmentnum++;
+            } else
+              break;
           }
 
-          // increment hostCount
-          hostCount[1]++;
+          SelectorEntry entry = values.next();
+          Text url = entry.url;
+          String urlString = url.toString();
+          URL u = null;
 
-          // check if topN reached, select next segment if it is
-          while (segCounts[hostCount[0] - 1] >= limit
-              && hostCount[0] < maxNumSegments) {
-            hostCount[0]++;
-            hostCount[1] = 0;
+          String hostordomain = null;
+
+          try {
+            if (normalise && normalizers != null) {
+              urlString = normalizers.normalize(urlString,
+                  URLNormalizers.SCOPE_GENERATE_HOST_COUNT);
+            }
+            u = new URL(urlString);
+            if (byDomain) {
+              hostordomain = URLUtil.getDomainName(u);
+            } else {
+              hostordomain = new URL(urlString).getHost();
+            }
+          } catch (Exception e) {
+            LOG.warn("Malformed URL: '" + urlString + "', skipping ("
+                + StringUtils.stringifyException(e) + ")");
+            context.getCounter("Generator", "MALFORMED_URL").increment(1);
+            continue;
           }
 
-          // reached the limit of allowed URLs per host / domain
-          // see if we can put it in the next segment?
-          if (hostCount[1] >= maxCount) {
-            if (hostCount[0] < maxNumSegments) {
+          hostordomain = hostordomain.toLowerCase();
+
+          // only filter if we are counting hosts or domains
+          if (maxCount > 0) {
+            int[] hostCount = hostCounts.get(hostordomain);
+            if (hostCount == null) {
+              hostCount = new int[] { 1, 0 };
+              hostCounts.put(hostordomain, hostCount);
+            }
+
+            // increment hostCount
+            hostCount[1]++;
+
+            // check if topN reached, select next segment if it is
+            while (segCounts[hostCount[0] - 1] >= limit
+                && hostCount[0] < maxNumSegments) {
               hostCount[0]++;
               hostCount[1] = 0;
-            } else {
-              if (hostCount[1] == maxCount + 1 && LOG.isInfoEnabled()) {
-                LOG.info("Host or domain "
-                    + hostordomain
-                    + " has more than "
-                    + maxCount
-                    + " URLs for all "
-                    + maxNumSegments
-                    + " segments. Additional URLs won't be included in the fetchlist.");
-              }
-              // skip this entry
-              continue;
             }
+
+            // reached the limit of allowed URLs per host / domain
+            // see if we can put it in the next segment?
+            if (hostCount[1] >= maxCount) {
+              if (hostCount[0] < maxNumSegments) {
+                hostCount[0]++;
+                hostCount[1] = 0;
+              } else {
+                if (hostCount[1] == maxCount + 1 && LOG.isInfoEnabled()) {
+                  LOG.info("Host or domain "
+                      + hostordomain
+                      + " has more than "
+                      + maxCount
+                      + " URLs for all "
+                      + maxNumSegments
+                      + " segments. Additional URLs won't be included in the fetchlist.");
+                }
+                // skip this entry
+                continue;
+              }
+            }
+            entry.segnum = new IntWritable(hostCount[0]);
+            segCounts[hostCount[0] - 1]++;
+          } else {
+            entry.segnum = new IntWritable(currentsegmentnum);
+            segCounts[currentsegmentnum - 1]++;
           }
-          entry.segnum = new IntWritable(hostCount[0]);
-          segCounts[hostCount[0] - 1]++;
-        } else {
-          entry.segnum = new IntWritable(currentsegmentnum);
-          segCounts[currentsegmentnum - 1]++;
+
+          context.write(key, entry);
+
+          // Count is incremented only when we keep the URL
+          // maxCount may cause us to skip it.
+          count++;
         }
-
-        context.write(key, entry);
-
-        // Count is incremented only when we keep the URL
-        // maxCount may cause us to skip it.
-        count++;
       }
     }
   }
@@ -443,49 +450,54 @@ public class Generator extends NutchTool implements Tool {
   /**
    * Update the CrawlDB so that the next generate won't include the same URLs.
    */
-  public static class CrawlDbUpdater implements
-      Mapper<Text, CrawlDatum, Text, CrawlDatum>,
-      Reducer<Text, CrawlDatum, Text, CrawlDatum> {
+  public static class CrawlDbUpdater {
     
-    long generateTime;
+    static long generateTime;
 
     public void configure(Job job) {
       Configuration conf = job.getConfiguration();
       generateTime = conf.getLong(Nutch.GENERATE_TIME_KEY, 0L);
     }
-
-    public void map(Text key, CrawlDatum value,
-        Context context)
-        throws IOException {
-      context.write(key, value);
+    
+    public static class CrawlDbUpdateMapper extends
+           Mapper<Text, CrawlDatum, Text, CrawlDatum> {
+      public void map(Text key, CrawlDatum value,
+          Context context)
+          throws IOException {
+        context.write(key, value);
+      }
     }
 
-    private CrawlDatum orig = new CrawlDatum();
-    private LongWritable genTime = new LongWritable(0L);
+    public static class CrawlDbUpdateReducer extends 
+           Reducer<Text, CrawlDatum, Text, CrawlDatum> {
+      
+      private CrawlDatum orig = new CrawlDatum();
+      private LongWritable genTime = new LongWritable(0L);
 
-    public void reduce(Text key, Iterator<CrawlDatum> values,
-        Context context)
-        throws IOException {
-      genTime.set(0L);
-      while (values.hasNext()) {
-        CrawlDatum val = values.next();
-        if (val.getMetaData().containsKey(Nutch.WRITABLE_GENERATE_TIME_KEY)) {
-          LongWritable gt = (LongWritable) val.getMetaData().get(
-              Nutch.WRITABLE_GENERATE_TIME_KEY);
-          genTime.set(gt.get());
-          if (genTime.get() != generateTime) {
+      public void reduce(Text key, Iterator<CrawlDatum> values,
+          Context context)
+          throws IOException {
+        genTime.set(0L);
+        while (values.hasNext()) {
+          CrawlDatum val = values.next();
+          if (val.getMetaData().containsKey(Nutch.WRITABLE_GENERATE_TIME_KEY)) {
+            LongWritable gt = (LongWritable) val.getMetaData().get(
+                Nutch.WRITABLE_GENERATE_TIME_KEY);
+            genTime.set(gt.get());
+            if (genTime.get() != generateTime) {
+              orig.set(val);
+              genTime.set(0L);
+              continue;
+            }
+          } else {
             orig.set(val);
-            genTime.set(0L);
-            continue;
           }
-        } else {
-          orig.set(val);
         }
+        if (genTime.get() != 0L) {
+          orig.getMetaData().put(Nutch.WRITABLE_GENERATE_TIME_KEY, genTime);
+        }
+        context.write(key, orig);
       }
-      if (genTime.get() != 0L) {
-        orig.getMetaData().put(Nutch.WRITABLE_GENERATE_TIME_KEY, genTime);
-      }
-      context.write(key, orig);
     }
   }
 
@@ -589,9 +601,10 @@ public class Generator extends NutchTool implements Tool {
     FileInputFormat.addInputPath(job, new Path(dbDir, CrawlDb.CURRENT_NAME));
     job.setInputFormatClass(SequenceFileInputFormat.class);
 
-    job.setMapperClass(Selector.class);
+    job.setJarByClass(Selector.class);
+    job.setMapperClass(Selector.SelectorMapper.class);
     job.setPartitionerClass(Selector.class);
-    job.setReducerClass(Selector.class);
+    job.setReducerClass(Selector.SelectorReducer.class);
 
     FileOutputFormat.setOutputPath(job, tempDir);
     job.setOutputFormatClass(SequenceFileOutputFormat.class);
@@ -649,8 +662,10 @@ public class Generator extends NutchTool implements Tool {
       }
       FileInputFormat.addInputPath(job, new Path(dbDir, CrawlDb.CURRENT_NAME));
       job.setInputFormatClass(SequenceFileInputFormat.class);
-      job.setMapperClass(CrawlDbUpdater.class);
-      job.setReducerClass(CrawlDbUpdater.class);
+      job.setJarByClass(CrawlDbUpdater.class);
+      job.setMapperClass(CrawlDbUpdater.CrawlDbUpdateMapper.class);
+      job.setReducerClass(CrawlDbUpdater.CrawlDbUpdateReducer.class);
+      //job.setJarByClass(CrawlDbUpdater.class);
       job.setOutputFormatClass(MapFileOutputFormat.class);
       job.setOutputKeyClass(Text.class);
       job.setOutputValueClass(CrawlDatum.class);

@@ -50,8 +50,7 @@ import org.apache.nutch.util.NutchTool;
 import org.apache.nutch.util.TimingUtil;
 
 /** Maintains an inverted link map, listing incoming links for each url. */
-public class LinkDb extends NutchTool implements Tool,
-    Mapper<Text, ParseData, Text, Inlinks> {
+public class LinkDb extends NutchTool implements Tool {
 
   private static final Logger LOG = LoggerFactory
       .getLogger(MethodHandles.lookup().lookupClass());
@@ -62,11 +61,11 @@ public class LinkDb extends NutchTool implements Tool,
   public static final String CURRENT_NAME = "current";
   public static final String LOCK_NAME = ".locked";
 
-  private int maxAnchorLength;
-  private boolean ignoreInternalLinks;
-  private boolean ignoreExternalLinks;
-  private URLFilters urlFilters;
-  private URLNormalizers urlNormalizers;
+  private static int maxAnchorLength;
+  private static boolean ignoreInternalLinks;
+  private static boolean ignoreExternalLinks;
+  private static URLFilters urlFilters;
+  private static URLNormalizers urlNormalizers;
 
   public LinkDb() {
   }
@@ -92,79 +91,82 @@ public class LinkDb extends NutchTool implements Tool,
   public void close() {
   }
 
-  public void map(Text key, ParseData parseData,
-      Context context)
-      throws IOException {
-    String fromUrl = key.toString();
-    String fromHost = getHost(fromUrl);
-    if (urlNormalizers != null) {
-      try {
-        fromUrl = urlNormalizers
-            .normalize(fromUrl, URLNormalizers.SCOPE_LINKDB); // normalize the
-                                                              // url
-      } catch (Exception e) {
-        LOG.warn("Skipping " + fromUrl + ":" + e);
-        fromUrl = null;
-      }
-    }
-    if (fromUrl != null && urlFilters != null) {
-      try {
-        fromUrl = urlFilters.filter(fromUrl); // filter the url
-      } catch (Exception e) {
-        LOG.warn("Skipping " + fromUrl + ":" + e);
-        fromUrl = null;
-      }
-    }
-    if (fromUrl == null)
-      return; // discard all outlinks
-    Outlink[] outlinks = parseData.getOutlinks();
-    Inlinks inlinks = new Inlinks();
-    for (int i = 0; i < outlinks.length; i++) {
-      Outlink outlink = outlinks[i];
-      String toUrl = outlink.getToUrl();
-
-      if (ignoreInternalLinks) {
-        String toHost = getHost(toUrl);
-        if (toHost == null || toHost.equals(fromHost)) { // internal link
-          continue; // skip it
-        }
-      } else if (ignoreExternalLinks) {
-        String toHost = getHost(toUrl);
-        if (toHost == null || !toHost.equals(fromHost)) { // external link
-          continue;                               // skip it
-        }
-      }
+  public static class LinkDbMapper extends 
+      Mapper<Text, ParseData, Text, Inlinks> {
+    public void map(Text key, ParseData parseData,
+        Context context)
+        throws IOException {
+      String fromUrl = key.toString();
+      String fromHost = getHost(fromUrl);
       if (urlNormalizers != null) {
         try {
-          toUrl = urlNormalizers.normalize(toUrl, URLNormalizers.SCOPE_LINKDB); // normalize
-                                                                                // the
-                                                                                // url
+          fromUrl = urlNormalizers
+              .normalize(fromUrl, URLNormalizers.SCOPE_LINKDB); // normalize the
+                                                                // url
         } catch (Exception e) {
-          LOG.warn("Skipping " + toUrl + ":" + e);
-          toUrl = null;
+          LOG.warn("Skipping " + fromUrl + ":" + e);
+          fromUrl = null;
         }
       }
-      if (toUrl != null && urlFilters != null) {
+      if (fromUrl != null && urlFilters != null) {
         try {
-          toUrl = urlFilters.filter(toUrl); // filter the url
+          fromUrl = urlFilters.filter(fromUrl); // filter the url
         } catch (Exception e) {
-          LOG.warn("Skipping " + toUrl + ":" + e);
-          toUrl = null;
+          LOG.warn("Skipping " + fromUrl + ":" + e);
+          fromUrl = null;
         }
       }
-      if (toUrl == null)
-        continue;
-      inlinks.clear();
-      String anchor = outlink.getAnchor(); // truncate long anchors
-      if (anchor.length() > maxAnchorLength) {
-        anchor = anchor.substring(0, maxAnchorLength);
+      if (fromUrl == null)
+        return; // discard all outlinks
+      Outlink[] outlinks = parseData.getOutlinks();
+      Inlinks inlinks = new Inlinks();
+      for (int i = 0; i < outlinks.length; i++) {
+        Outlink outlink = outlinks[i];
+        String toUrl = outlink.getToUrl();
+
+        if (ignoreInternalLinks) {
+          String toHost = getHost(toUrl);
+          if (toHost == null || toHost.equals(fromHost)) { // internal link
+            continue; // skip it
+          }
+        } else if (ignoreExternalLinks) {
+          String toHost = getHost(toUrl);
+          if (toHost == null || !toHost.equals(fromHost)) { // external link
+            continue;                               // skip it
+          }
+        }
+        if (urlNormalizers != null) {
+          try {
+            toUrl = urlNormalizers.normalize(toUrl, URLNormalizers.SCOPE_LINKDB); // normalize
+                                                                                  // the
+                                                                                  // url
+          } catch (Exception e) {
+            LOG.warn("Skipping " + toUrl + ":" + e);
+            toUrl = null;
+          }
+        }
+        if (toUrl != null && urlFilters != null) {
+          try {
+            toUrl = urlFilters.filter(toUrl); // filter the url
+          } catch (Exception e) {
+            LOG.warn("Skipping " + toUrl + ":" + e);
+            toUrl = null;
+          }
+        }
+        if (toUrl == null)
+          continue;
+        inlinks.clear();
+        String anchor = outlink.getAnchor(); // truncate long anchors
+        if (anchor.length() > maxAnchorLength) {
+          anchor = anchor.substring(0, maxAnchorLength);
+        }
+        inlinks.add(new Inlink(fromUrl, anchor)); // collect inverted link
+        context.write(new Text(toUrl), inlinks);
       }
-      inlinks.add(new Inlink(fromUrl, anchor)); // collect inverted link
-      context.write(new Text(toUrl), inlinks);
     }
   }
 
-  private String getHost(String url) {
+  private static String getHost(String url) {
     try {
       return new URL(url).getHost().toLowerCase();
     } catch (MalformedURLException e) {
@@ -260,8 +262,11 @@ public class LinkDb extends NutchTool implements Tool,
 
     job.setInputFormatClass(SequenceFileInputFormat.class);
 
-    job.setMapperClass(LinkDb.class);
-    job.setCombinerClass(LinkDbMerger.class);
+    job.setJarByClass(LinkDb.class);
+    job.setMapperClass(LinkDb.LinkDbMapper.class);
+    
+    job.setJarByClass(LinkDbMerger.class);
+    job.setCombinerClass(LinkDbMerger.LinkDbMergeReducer.class);
     // if we don't run the mergeJob, perform normalization/filtering now
     if (normalize || filter) {
       try {
@@ -274,8 +279,7 @@ public class LinkDb extends NutchTool implements Tool,
         LOG.warn("LinkDb createJob: " + e);
       }
     }
-    job.setJarByClass(LinkDbMerger.class);
-    job.setReducerClass(LinkDbMergeReducer.class);
+    job.setReducerClass(LinkDbMerger.LinkDbMergeReducer.class);
 
     FileOutputFormat.setOutputPath(job, newLinkDb);
     job.setOutputFormatClass(MapFileOutputFormat.class);
