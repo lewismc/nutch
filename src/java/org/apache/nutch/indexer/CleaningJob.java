@@ -25,15 +25,13 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.ByteWritable;
 import org.apache.hadoop.io.Text;
-import org.apache.hadoop.mapred.FileInputFormat;
-import org.apache.hadoop.mapred.JobClient;
-import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.mapred.Mapper;
-import org.apache.hadoop.mapred.OutputCollector;
-import org.apache.hadoop.mapred.Reducer;
-import org.apache.hadoop.mapred.Reporter;
-import org.apache.hadoop.mapred.SequenceFileInputFormat;
-import org.apache.hadoop.mapred.lib.NullOutputFormat;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.Mapper.Context;
+import org.apache.hadoop.mapreduce.lib.input.SequenceFileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.NullOutputFormat;
 import org.apache.hadoop.util.StringUtils;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
@@ -65,31 +63,28 @@ public class CleaningJob implements Tool {
     this.conf = conf;
   }
 
-  public static class DBFilter implements
+  public static class DBFilter extends
       Mapper<Text, CrawlDatum, ByteWritable, Text> {
     private ByteWritable OUT = new ByteWritable(CrawlDatum.STATUS_DB_GONE);
 
-    @Override
-    public void configure(JobConf arg0) {
+    public void configure(Job arg0) {
     }
 
-    @Override
     public void close() throws IOException {
     }
 
     @Override
     public void map(Text key, CrawlDatum value,
-        OutputCollector<ByteWritable, Text> output, Reporter reporter)
-        throws IOException {
+        Context context) throws IOException {
 
       if (value.getStatus() == CrawlDatum.STATUS_DB_GONE
           || value.getStatus() == CrawlDatum.STATUS_DB_DUPLICATE) {
-        output.collect(OUT, key);
+        context.write(OUT, key);
       }
     }
   }
 
-  public static class DeleterReducer implements
+  public static class DeleterReducer extends
       Reducer<ByteWritable, Text, Text, ByteWritable> {
     private static final int NUM_MAX_DELETE_REQUEST = 1000;
     private int numDeletes = 0;
@@ -99,18 +94,17 @@ public class CleaningJob implements Tool {
 
     IndexWriters writers = null;
 
-    @Override
-    public void configure(JobConf job) {
-      writers = new IndexWriters(job);
+    public void configure(Job job) {
+      Configuration conf = job.getConfiguration();
+      writers = new IndexWriters(conf);
       try {
-        writers.open(job, "Deletion");
+        writers.open(conf, "Deletion");
       } catch (IOException e) {
         throw new RuntimeException(e);
       }
-      noCommit = job.getBoolean("noCommit", false);
+      noCommit = conf.getBoolean("noCommit", false);
     }
 
-    @Override
     public void close() throws IOException {
       // BUFFERING OF CALLS TO INDEXER SHOULD BE HANDLED AT INDEXER LEVEL
       // if (numDeletes > 0) {
@@ -128,15 +122,13 @@ public class CleaningJob implements Tool {
       LOG.info("CleaningJob: deleted a total of " + totalDeleted + " documents");
     }
 
-    @Override
     public void reduce(ByteWritable key, Iterator<Text> values,
-        OutputCollector<Text, ByteWritable> output, Reporter reporter)
-        throws IOException {
+        Context context) throws IOException {
       while (values.hasNext()) {
         Text document = values.next();
         writers.delete(document.toString());
         totalDeleted++;
-        reporter.incrCounter("CleaningJobStatus", "Deleted documents", 1);
+        context.getCounter("CleaningJobStatus", "Deleted documents").increment(1);
         // if (numDeletes >= NUM_MAX_DELETE_REQUEST) {
         // LOG.info("CleaningJob: deleting " + numDeletes
         // + " documents");
@@ -155,12 +147,13 @@ public class CleaningJob implements Tool {
     long start = System.currentTimeMillis();
     LOG.info("CleaningJob: starting at " + sdf.format(start));
 
-    JobConf job = new NutchJob(getConf());
+    Job job = new NutchJob(getConf());
+    Configuration conf = job.getConfiguration();
 
     FileInputFormat.addInputPath(job, new Path(crawldb, CrawlDb.CURRENT_NAME));
-    job.setBoolean("noCommit", noCommit);
-    job.setInputFormat(SequenceFileInputFormat.class);
-    job.setOutputFormat(NullOutputFormat.class);
+    conf.setBoolean("noCommit", noCommit);
+    job.setInputFormatClass(SequenceFileInputFormat.class);
+    job.setOutputFormatClass(NullOutputFormat.class);
     job.setMapOutputKeyClass(ByteWritable.class);
     job.setMapOutputValueClass(Text.class);
     job.setMapperClass(DBFilter.class);
@@ -169,9 +162,9 @@ public class CleaningJob implements Tool {
     job.setJobName("CleaningJob");
 
     // need to expicitely allow deletions
-    job.setBoolean(IndexerMapReduce.INDEXER_DELETE, true);
+    conf.setBoolean(IndexerMapReduce.INDEXER_DELETE, true);
 
-    JobClient.runJob(job);
+    int complete = job.waitForCompletion(true)?0:1;
 
     long end = System.currentTimeMillis();
     LOG.info("CleaningJob: finished at " + sdf.format(end) + ", elapsed: "

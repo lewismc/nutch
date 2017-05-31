@@ -580,7 +580,7 @@ public class Generator extends NutchTool implements Tool {
     Configuration conf = job.getConfiguration();
 
     if (numLists == -1) { // for politeness make
-      numLists = job.getNumMapTasks(); // a partition per fetch task
+      numLists = Integer.parseInt(conf.get("mapreduce.map.tasks")); // a partition per fetch task
     }
     if ("local".equals(conf.get("mapreduce.framework.name")) && numLists != 1) {
       // override
@@ -609,7 +609,7 @@ public class Generator extends NutchTool implements Tool {
     FileOutputFormat.setOutputPath(job, tempDir);
     job.setOutputFormatClass(SequenceFileOutputFormat.class);
     job.setOutputKeyClass(FloatWritable.class);
-    job.setOutputKeyComparatorClass(DecreasingFloatComparator.class);
+    job.setSortComparatorClass(DecreasingFloatComparator.class);
     job.setOutputValueClass(SelectorEntry.class);
     job.setOutputFormatClass(GeneratorOutputFormat.class);
 
@@ -723,7 +723,7 @@ public class Generator extends NutchTool implements Tool {
     job.setOutputFormatClass(SequenceFileOutputFormat.class);
     job.setOutputKeyClass(Text.class);
     job.setOutputValueClass(CrawlDatum.class);
-    job.setOutputKeyComparatorClass(HashComparator.class);
+    job.setSortComparatorClass(HashComparator.class);
     int complete = job.waitForCompletion(true)?0:1;
     return segment;
   }

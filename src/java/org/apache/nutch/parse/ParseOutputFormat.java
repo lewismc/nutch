@@ -26,7 +26,13 @@ import org.apache.hadoop.io.SequenceFile.CompressionType;
 import org.apache.hadoop.io.SequenceFile.Metadata;
 import org.apache.hadoop.io.compress.DefaultCodec;
 import org.apache.hadoop.fs.*;
-import org.apache.hadoop.mapred.*;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.OutputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.output.SequenceFileOutputFormat;
+import org.apache.hadoop.mapreduce.RecordWriter;
+import org.apache.hadoop.mapreduce.TaskAttemptContext;
 import org.apache.nutch.crawl.CrawlDatum;
 import org.apache.nutch.fetcher.Fetcher;
 import org.apache.nutch.scoring.ScoringFilterException;
@@ -47,7 +53,7 @@ import java.util.Map.Entry;
 import org.apache.hadoop.util.Progressable;
 
 /* Parse content in a segment. */
-public class ParseOutputFormat implements OutputFormat<Text, Parse> {
+public class ParseOutputFormat extends OutputFormat<Text, Parse> {
   private static final Logger LOG = LoggerFactory
       .getLogger(MethodHandles.lookup().lookupClass());
   private URLFilters filters;
@@ -78,52 +84,57 @@ public class ParseOutputFormat implements OutputFormat<Text, Parse> {
     }
   }
 
-  public void checkOutputSpecs(FileSystem fs, JobConf job) throws IOException {
+  public void checkOutputSpecs(FileSystem fs, Job job) throws IOException {
+    Configuration conf = job.getConfiguration();
     Path out = FileOutputFormat.getOutputPath(job);
     if ((out == null) && (job.getNumReduceTasks() != 0)) {
-      throw new InvalidJobConfException("Output directory not set in JobConf.");
+      throw new Exception("Output directory not set in JobConf.");
     }
     if (fs == null) {
-      fs = out.getFileSystem(job);
+      fs = out.getFileSystem(conf);
     }
     if (fs.exists(new Path(out, CrawlDatum.PARSE_DIR_NAME)))
       throw new IOException("Segment already parsed!");
   }
 
-  public RecordWriter<Text, Parse> getRecordWriter(FileSystem fs, JobConf job,
-      String name, Progressable progress) throws IOException {
+  public RecordWriter<Text, Parse> getRecordWriter(TaskAttemptContext context)
+      throws IOException {
+    Configuration conf = context.getConfiguration();
+    String name = context.getTaskAttemptID().toString();
+    Path dir = FileOutputFormat.getOutputPath(context);
+    FileSystem fs = dir.getFileSystem(context.getConfiguration());
 
-    if (job.getBoolean("parse.filter.urls", true)) {
-      filters = new URLFilters(job);
-      exemptionFilters = new URLExemptionFilters(job);
+    if (conf.getBoolean("parse.filter.urls", true)) {
+      filters = new URLFilters(conf);
+      exemptionFilters = new URLExemptionFilters(conf);
     }
 
-    if (job.getBoolean("parse.normalize.urls", true)) {
-      normalizers = new URLNormalizers(job, URLNormalizers.SCOPE_OUTLINK);
+    if (conf.getBoolean("parse.normalize.urls", true)) {
+      normalizers = new URLNormalizers(conf, URLNormalizers.SCOPE_OUTLINK);
     }
 
-    this.scfilters = new ScoringFilters(job);
-    final int interval = job.getInt("db.fetch.interval.default", 2592000);
-    final boolean ignoreInternalLinks = job.getBoolean(
+    this.scfilters = new ScoringFilters(conf);
+    final int interval = conf.getInt("db.fetch.interval.default", 2592000);
+    final boolean ignoreInternalLinks = conf.getBoolean(
         "db.ignore.internal.links", false);
-    final boolean ignoreExternalLinks = job.getBoolean(
+    final boolean ignoreExternalLinks = conf.getBoolean(
         "db.ignore.external.links", false);
-    final String ignoreExternalLinksMode = job.get(
+    final String ignoreExternalLinksMode = conf.get(
         "db.ignore.external.links.mode", "byHost");
     
-    int maxOutlinksPerPage = job.getInt("db.max.outlinks.per.page", 100);
-    final boolean isParsing = job.getBoolean("fetcher.parse", true);
+    int maxOutlinksPerPage = conf.getInt("db.max.outlinks.per.page", 100);
+    final boolean isParsing = conf.getBoolean("fetcher.parse", true);
     final int maxOutlinks = (maxOutlinksPerPage < 0) ? Integer.MAX_VALUE
         : maxOutlinksPerPage;
     final CompressionType compType = SequenceFileOutputFormat
-        .getOutputCompressionType(job);
-    Path out = FileOutputFormat.getOutputPath(job);
+        .getOutputCompressionType(context);
+    Path out = FileOutputFormat.getOutputPath(context);
 
     Path text = new Path(new Path(out, ParseText.DIR_NAME), name);
     Path data = new Path(new Path(out, ParseData.DIR_NAME), name);
     Path crawl = new Path(new Path(out, CrawlDatum.PARSE_DIR_NAME), name);
 
-    final String[] parseMDtoCrawlDB = job.get("db.parsemeta.to.crawldb", "")
+    final String[] parseMDtoCrawlDB = conf.get("db.parsemeta.to.crawldb", "")
         .split(" *, *");
 
     // textOut Options
@@ -132,7 +143,7 @@ public class ParseOutputFormat implements OutputFormat<Text, Parse> {
     org.apache.hadoop.io.SequenceFile.Writer.Option tProgressOpt = SequenceFile.Writer.progressable(progress);
     org.apache.hadoop.io.SequenceFile.Writer.Option tCompOpt = SequenceFile.Writer.compression(CompressionType.RECORD);
     
-    final MapFile.Writer textOut = new MapFile.Writer(job, text,
+    final MapFile.Writer textOut = new MapFile.Writer(conf, text,
         tKeyClassOpt, tValClassOpt, tCompOpt, tProgressOpt);
     
     // dataOut Options
@@ -141,10 +152,10 @@ public class ParseOutputFormat implements OutputFormat<Text, Parse> {
     org.apache.hadoop.io.SequenceFile.Writer.Option dProgressOpt = SequenceFile.Writer.progressable(progress);
     org.apache.hadoop.io.SequenceFile.Writer.Option dCompOpt = SequenceFile.Writer.compression(compType);
 
-    final MapFile.Writer dataOut = new MapFile.Writer(job, data,
+    final MapFile.Writer dataOut = new MapFile.Writer(conf, data,
         dKeyClassOpt, dValClassOpt, dCompOpt, dProgressOpt);
     
-    final SequenceFile.Writer crawlOut = SequenceFile.createWriter(job, SequenceFile.Writer.file(crawl),
+    final SequenceFile.Writer crawlOut = SequenceFile.createWriter(conf, SequenceFile.Writer.file(crawl),
         SequenceFile.Writer.keyClass(Text.class),
         SequenceFile.Writer.valueClass(CrawlDatum.class),
         SequenceFile.Writer.bufferSize(fs.getConf().getInt("io.file.buffer.size",4096)),
@@ -309,7 +320,7 @@ public class ParseOutputFormat implements OutputFormat<Text, Parse> {
         }
       }
 
-      public void close(Reporter reporter) throws IOException {
+      public void close(TaskAttemptContext context) throws IOException {
         textOut.close();
         dataOut.close();
         crawlOut.close();

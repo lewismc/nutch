@@ -32,7 +32,6 @@ import java.util.Map;
 
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.io.Text;
-import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.nutch.crawl.CrawlDatum;
@@ -348,7 +347,7 @@ public class IndexingFiltersChecker extends Configured implements Tool {
 
     if (getConf().getBoolean("doIndex", false) && doc != null) {
       IndexWriters writers = new IndexWriters(getConf());
-      writers.open(new JobConf(getConf()), "IndexingFilterChecker");
+      writers.open(getConf(), "IndexingFilterChecker");
       writers.write(doc);
       writers.close();
     }

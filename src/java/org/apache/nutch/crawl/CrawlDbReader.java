@@ -170,6 +170,7 @@ public class CrawlDbReader extends Configured implements Closeable, Tool {
 
     public RecordWriter<Text, CrawlDatum> getRecordWriter(TaskAttemptContext
         context) throws IOException {
+      String name = context.getTaskAttemptID().toString();
       Path dir = FileOutputFormat.getOutputPath(context);
       FileSystem fs = dir.getFileSystem(context.getConfiguration());
       DataOutputStream fileOut = fs.create(new Path(dir, name), context);
