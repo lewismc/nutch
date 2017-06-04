@@ -46,19 +46,17 @@ import org.apache.hadoop.io.SequenceFile;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.io.WritableComparable;
-import org.apache.hadoop.mapred.FileInputFormat;
-import org.apache.hadoop.mapred.FileOutputFormat;
-import org.apache.hadoop.mapred.JobClient;
-import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.mapred.MapFileOutputFormat;
-import org.apache.hadoop.mapred.MapReduceBase;
-import org.apache.hadoop.mapred.Mapper;
-import org.apache.hadoop.mapred.OutputCollector;
-import org.apache.hadoop.mapred.RecordWriter;
-import org.apache.hadoop.mapred.Reducer;
-import org.apache.hadoop.mapred.Reporter;
-import org.apache.hadoop.mapred.SequenceFileInputFormat;
-import org.apache.hadoop.mapred.SequenceFileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.lib.output.MapFileOutputFormat;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Mapper.Context;
+import org.apache.hadoop.mapreduce.RecordWriter;
+import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.TaskAttemptContext;
+import org.apache.hadoop.mapreduce.lib.input.SequenceFileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.SequenceFileOutputFormat;
 import org.apache.hadoop.util.Progressable;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
@@ -72,30 +70,28 @@ import org.apache.nutch.util.NutchConfiguration;
 import org.apache.nutch.util.NutchJob;
 
 /** Dump the content of a segment. */
-public class SegmentReader extends Configured implements Tool,
-    Reducer<Text, NutchWritable, Text, Text> {
+public class SegmentReader extends Configured implements Tool {
 
   private static final Logger LOG = LoggerFactory
       .getLogger(MethodHandles.lookup().lookupClass());
 
-  long recNo = 0L;
+  static long recNo = 0L;
 
   private boolean co, fe, ge, pa, pd, pt;
 
-  public static class InputCompatMapper extends MapReduceBase implements
+  public static class InputCompatMapper extends
       Mapper<WritableComparable<?>, Writable, Text, NutchWritable> {
-    private Text newKey = new Text();
+    private static Text newKey = new Text();
 
     public void map(WritableComparable<?> key, Writable value,
-        OutputCollector<Text, NutchWritable> collector, Reporter reporter)
-        throws IOException {
+        Context context) throws IOException {
       // convert on the fly from old formats with UTF8 keys.
       // UTF8 deprecated and replaced by Text.
       if (key instanceof Text) {
         newKey.set(key.toString());
         key = newKey;
       }
-      collector.collect((Text) key, new NutchWritable(value));
+      context.write((Text) key, new NutchWritable(value));
     }
 
   }
@@ -104,11 +100,14 @@ public class SegmentReader extends Configured implements Tool,
   public static class TextOutputFormat extends
       FileOutputFormat<WritableComparable<?>, Writable> {
     public RecordWriter<WritableComparable<?>, Writable> getRecordWriter(
-        final FileSystem fs, JobConf job, String name,
-        final Progressable progress) throws IOException {
+        TaskAttemptContext context) throws IOException {
+      Configuration conf = context.getConfiguration();
+      String name = context.getTaskAttemptID().toString();
+      Path dir = FileOutputFormat.getOutputPath(context);
+      FileSystem fs = dir.getFileSystem(context.getConfiguration());
 
       final Path segmentDumpFile = new Path(
-          FileOutputFormat.getOutputPath(job), name);
+          FileOutputFormat.getOutputPath(context), name);
 
       // Get the old copy out of the way
       if (fs.exists(segmentDumpFile))
@@ -122,7 +121,7 @@ public class SegmentReader extends Configured implements Tool,
           printStream.println(value);
         }
 
-        public synchronized void close(Reporter reporter) throws IOException {
+        public synchronized void close(TaskAttemptContext context) throws IOException {
           printStream.close();
         }
       };
@@ -144,8 +143,9 @@ public class SegmentReader extends Configured implements Tool,
     this.pt = pt;
   }
 
-  public void configure(JobConf job) {
-    setConf(job);
+  public void configure(Job job) {
+    Configuration conf = job.getConfiguration();
+    setConf(conf);
     this.co = getConf().getBoolean("segment.reader.co", true);
     this.fe = getConf().getBoolean("segment.reader.fe", true);
     this.ge = getConf().getBoolean("segment.reader.ge", true);
@@ -154,41 +154,44 @@ public class SegmentReader extends Configured implements Tool,
     this.pt = getConf().getBoolean("segment.reader.pt", true);
   }
 
-  private JobConf createJobConf() {
-    JobConf job = new NutchJob(getConf());
-    job.setBoolean("segment.reader.co", this.co);
-    job.setBoolean("segment.reader.fe", this.fe);
-    job.setBoolean("segment.reader.ge", this.ge);
-    job.setBoolean("segment.reader.pa", this.pa);
-    job.setBoolean("segment.reader.pd", this.pd);
-    job.setBoolean("segment.reader.pt", this.pt);
-    return job;
+  private Configuration createJobConf() {
+    Job job = new NutchJob(getConf());
+    Configuration conf = job.getConfiguration();
+    conf.setBoolean("segment.reader.co", this.co);
+    conf.setBoolean("segment.reader.fe", this.fe);
+    conf.setBoolean("segment.reader.ge", this.ge);
+    conf.setBoolean("segment.reader.pa", this.pa);
+    conf.setBoolean("segment.reader.pd", this.pd);
+    conf.setBoolean("segment.reader.pt", this.pt);
+    return conf;
   }
 
   public void close() {
   }
+  public static class InputCompatReducer extends
+      Reducer<Text, NutchWritable, Text, Text> {
+    public void reduce(Text key, Iterator<NutchWritable> values,
+        Context context) throws IOException {
+      StringBuffer dump = new StringBuffer();
 
-  public void reduce(Text key, Iterator<NutchWritable> values,
-      OutputCollector<Text, Text> output, Reporter reporter) throws IOException {
-    StringBuffer dump = new StringBuffer();
-
-    dump.append("\nRecno:: ").append(recNo++).append("\n");
-    dump.append("URL:: " + key.toString() + "\n");
-    while (values.hasNext()) {
-      Writable value = values.next().get(); // unwrap
-      if (value instanceof CrawlDatum) {
-        dump.append("\nCrawlDatum::\n").append(((CrawlDatum) value).toString());
-      } else if (value instanceof Content) {
-        dump.append("\nContent::\n").append(((Content) value).toString());
-      } else if (value instanceof ParseData) {
-        dump.append("\nParseData::\n").append(((ParseData) value).toString());
-      } else if (value instanceof ParseText) {
-        dump.append("\nParseText::\n").append(((ParseText) value).toString());
-      } else if (LOG.isWarnEnabled()) {
-        LOG.warn("Unrecognized type: " + value.getClass());
+      dump.append("\nRecno:: ").append(recNo++).append("\n");
+      dump.append("URL:: " + key.toString() + "\n");
+      while (values.hasNext()) {
+        Writable value = values.next().get(); // unwrap
+        if (value instanceof CrawlDatum) {
+          dump.append("\nCrawlDatum::\n").append(((CrawlDatum) value).toString());
+        } else if (value instanceof Content) {
+          dump.append("\nContent::\n").append(((Content) value).toString());
+        } else if (value instanceof ParseData) {
+          dump.append("\nParseData::\n").append(((ParseData) value).toString());
+        } else if (value instanceof ParseText) {
+          dump.append("\nParseText::\n").append(((ParseText) value).toString());
+        } else if (LOG.isWarnEnabled()) {
+          LOG.warn("Unrecognized type: " + value.getClass());
+        }
       }
+      context.write(key, new Text(dump.toString()));
     }
-    output.collect(key, new Text(dump.toString()));
   }
 
   public void dump(Path segment, Path output) throws IOException {
@@ -197,8 +200,9 @@ public class SegmentReader extends Configured implements Tool,
       LOG.info("SegmentReader: dump segment: " + segment);
     }
 
-    JobConf job = createJobConf();
+    Job job = job.getInstance();
     job.setJobName("read " + segment);
+    Configuration conf = job.getConfiguration();
 
     if (ge)
       FileInputFormat.addInputPath(job, new Path(segment,
@@ -216,25 +220,25 @@ public class SegmentReader extends Configured implements Tool,
     if (pt)
       FileInputFormat.addInputPath(job, new Path(segment, ParseText.DIR_NAME));
 
-    job.setInputFormat(SequenceFileInputFormat.class);
+    job.setInputFormatClass(SequenceFileInputFormat.class);
     job.setMapperClass(InputCompatMapper.class);
-    job.setReducerClass(SegmentReader.class);
+    job.setReducerClass(InputCompatReducer.class);
 
-    Path tempDir = new Path(job.get("hadoop.tmp.dir", "/tmp") + "/segread-"
+    Path tempDir = new Path(conf.get("hadoop.tmp.dir", "/tmp") + "/segread-"
         + new java.util.Random().nextInt());
-    FileSystem fs = tempDir.getFileSystem(job);
+    FileSystem fs = tempDir.getFileSystem(conf);
     fs.delete(tempDir, true);
 
     FileOutputFormat.setOutputPath(job, tempDir);
-    job.setOutputFormat(TextOutputFormat.class);
+    job.setOutputFormatClass(TextOutputFormat.class);
     job.setOutputKeyClass(Text.class);
     job.setOutputValueClass(NutchWritable.class);
 
-    JobClient.runJob(job);
+    int complete = job.waitForCompletion(true)?0:1;
 
     // concatenate the output
-    Path dumpFile = new Path(output, job.get("segment.dump.dir", "dump"));
-    FileSystem outFs = dumpFile.getFileSystem(job);
+    Path dumpFile = new Path(output, conf.get("segment.dump.dir", "dump"));
+    FileSystem outFs = dumpFile.getFileSystem(conf);
 
     // remove the old file
     outFs.delete(dumpFile, true);
@@ -251,7 +255,7 @@ public class SegmentReader extends Configured implements Tool,
         for (int i = 0; i < files.length; i++) {
           Path partFile = files[i];
           try {
-            currentRecordNumber = append(fs, job, partFile, writer,
+            currentRecordNumber = append(fs, conf, partFile, writer,
                 currentRecordNumber);
           } catch (IOException exception) {
             if (LOG.isWarnEnabled()) {
@@ -402,8 +406,7 @@ public class SegmentReader extends Configured implements Tool,
   }
 
   private List<Writable> getMapRecords(Path dir, Text key) throws Exception {
-    FileSystem fs = dir.getFileSystem(getConf());
-    MapFile.Reader[] readers = MapFileOutputFormat.getReaders(fs, dir,
+    MapFile.Reader[] readers = MapFileOutputFormat.getReaders(dir,
         getConf());
     ArrayList<Writable> res = new ArrayList<>();
     Class<?> keyClass = readers[0].getKeyClass();
@@ -522,7 +525,7 @@ public class SegmentReader extends Configured implements Tool,
         long start = Long.MAX_VALUE;
         long end = Long.MIN_VALUE;
         CrawlDatum value = new CrawlDatum();
-        MapFile.Reader[] mreaders = MapFileOutputFormat.getReaders(fs, fetchDir,
+        MapFile.Reader[] mreaders = MapFileOutputFormat.getReaders(fetchDir,
             getConf());
         for (int i = 0; i < mreaders.length; i++) {
           while (mreaders[i].next(key, value)) {
@@ -546,7 +549,7 @@ public class SegmentReader extends Configured implements Tool,
         cnt = 0L;
         long errors = 0L;
         ParseData value = new ParseData();
-        MapFile.Reader[] mreaders = MapFileOutputFormat.getReaders(fs, parseDir,
+        MapFile.Reader[] mreaders = MapFileOutputFormat.getReaders(parseDir,
             getConf());
         for (int i = 0; i < mreaders.length; i++) {
           while (mreaders[i].next(key, value)) {

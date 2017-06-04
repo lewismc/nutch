@@ -46,16 +46,14 @@ import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.BooleanWritable;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.io.WritableUtils;
-import org.apache.hadoop.mapred.FileInputFormat;
-import org.apache.hadoop.mapred.FileOutputFormat;
-import org.apache.hadoop.mapred.JobClient;
-import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.mapred.MapFileOutputFormat;
-import org.apache.hadoop.mapred.Mapper;
-import org.apache.hadoop.mapred.OutputCollector;
-import org.apache.hadoop.mapred.Reducer;
-import org.apache.hadoop.mapred.Reporter;
-import org.apache.hadoop.mapred.SequenceFileInputFormat;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.lib.output.MapFileOutputFormat;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Mapper.Context;
+import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.lib.input.SequenceFileInputFormat;
 import org.apache.hadoop.util.StringUtils;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
@@ -109,29 +107,27 @@ public class WebGraph extends Configured implements Tool {
    * by domain and host can be ignored. The number of Outlinks out to a given
    * page or domain can also be limited.
    */
-  public static class OutlinkDb extends Configured implements
-      Mapper<Text, Writable, Text, NutchWritable>,
-      Reducer<Text, NutchWritable, Text, LinkDatum> {
+  public static class OutlinkDb extends Configured {
 
     public static final String URL_NORMALIZING = "webgraph.url.normalizers";
     public static final String URL_FILTERING = "webgraph.url.filters";
 
     // ignoring internal domains, internal hosts
-    private boolean ignoreDomain = true;
-    private boolean ignoreHost = true;
+    private static boolean ignoreDomain = true;
+    private static boolean ignoreHost = true;
 
     // limiting urls out to a page or to a domain
-    private boolean limitPages = true;
-    private boolean limitDomains = true;
+    private static boolean limitPages = true;
+    private static boolean limitDomains = true;
 
     // using normalizers and/or filters
-    private boolean normalize = false;
-    private boolean filter = false;
+    private static boolean normalize = false;
+    private static boolean filter = false;
 
     // url normalizers, filters and job configuration
-    private URLNormalizers urlNormalizers;
-    private URLFilters filters;
-    private JobConf conf;
+    private static URLNormalizers urlNormalizers;
+    private static URLFilters filters;
+    private static Configuration conf;
 
     /**
      * Normalizes and trims extra whitespace from the given url.
@@ -141,7 +137,7 @@ public class WebGraph extends Configured implements Tool {
      * 
      * @return The normalized url.
      */
-    private String normalizeUrl(String url) {
+    private static String normalizeUrl(String url) {
 
       if (!normalize) {
         return url;
@@ -171,7 +167,7 @@ public class WebGraph extends Configured implements Tool {
      * 
      * @return The filtered url or null.
      */
-    private String filterUrl(String url) {
+    private static String filterUrl(String url) {
 
       if (!filter) {
         return url;
@@ -195,7 +191,7 @@ public class WebGraph extends Configured implements Tool {
      * 
      * @return The fetch time as a long.
      */
-    private long getFetchTime(ParseData data) {
+    private static long getFetchTime(ParseData data) {
 
       // default to current system time
       long fetchTime = System.currentTimeMillis();
@@ -225,7 +221,8 @@ public class WebGraph extends Configured implements Tool {
     /**
      * Configures the OutlinkDb job. Sets up internal links and link limiting.
      */
-    public void configure(JobConf conf) {
+    public void configure(Job job) {
+      Configuration conf = job.getConfiguration();
       this.conf = conf;
       ignoreHost = conf.getBoolean("link.ignore.internal.host", true);
       ignoreDomain = conf.getBoolean("link.ignore.internal.domain", true);
@@ -248,144 +245,150 @@ public class WebGraph extends Configured implements Tool {
      * Passes through existing LinkDatum objects from an existing OutlinkDb and
      * maps out new LinkDatum objects from new crawls ParseData.
      */
-    public void map(Text key, Writable value,
-        OutputCollector<Text, NutchWritable> output, Reporter reporter)
-        throws IOException {
+    public static class OutlinkDbMapper extends
+        Mapper<Text, Writable, Text, NutchWritable> {
+      public void map(Text key, Writable value,
+          Context context)
+          throws IOException {
 
-      // normalize url, stop processing if null
-      String url = normalizeUrl(key.toString());
-      if (url == null) {
-        return;
-      }
-
-      // filter url
-      if (filterUrl(url) == null) {
-        return;
-      }
-
-      // Overwrite the key with the normalized URL
-      key.set(url);
-
-      if (value instanceof CrawlDatum) {
-        CrawlDatum datum = (CrawlDatum) value;
-
-        if (datum.getStatus() == CrawlDatum.STATUS_FETCH_REDIR_TEMP
-            || datum.getStatus() == CrawlDatum.STATUS_FETCH_REDIR_PERM
-            || datum.getStatus() == CrawlDatum.STATUS_FETCH_GONE) {
-
-          // Tell the reducer to get rid of all instances of this key
-          output.collect(key, new NutchWritable(new BooleanWritable(true)));
+        // normalize url, stop processing if null
+        String url = normalizeUrl(key.toString());
+        if (url == null) {
+          return;
         }
-      } else if (value instanceof ParseData) {
-        // get the parse data and the outlinks from the parse data, along with
-        // the fetch time for those links
-        ParseData data = (ParseData) value;
-        long fetchTime = getFetchTime(data);
-        Outlink[] outlinkAr = data.getOutlinks();
-        Map<String, String> outlinkMap = new LinkedHashMap<>();
 
-        // normalize urls and put into map
-        if (outlinkAr != null && outlinkAr.length > 0) {
-          for (int i = 0; i < outlinkAr.length; i++) {
-            Outlink outlink = outlinkAr[i];
-            String toUrl = normalizeUrl(outlink.getToUrl());
+        // filter url
+        if (filterUrl(url) == null) {
+          return;
+        }
 
-            if (filterUrl(toUrl) == null) {
-              continue;
-            }
+        // Overwrite the key with the normalized URL
+        key.set(url);
 
-            // only put into map if the url doesn't already exist in the map or
-            // if it does and the anchor for that link is null, will replace if
-            // url is existing
-            boolean existingUrl = outlinkMap.containsKey(toUrl);
-            if (toUrl != null
-                && (!existingUrl || (existingUrl && outlinkMap.get(toUrl) == null))) {
-              outlinkMap.put(toUrl, outlink.getAnchor());
+        if (value instanceof CrawlDatum) {
+          CrawlDatum datum = (CrawlDatum) value;
+
+          if (datum.getStatus() == CrawlDatum.STATUS_FETCH_REDIR_TEMP
+              || datum.getStatus() == CrawlDatum.STATUS_FETCH_REDIR_PERM
+              || datum.getStatus() == CrawlDatum.STATUS_FETCH_GONE) {
+
+            // Tell the reducer to get rid of all instances of this key
+            context.write(key, new NutchWritable(new BooleanWritable(true)));
+          }
+        } else if (value instanceof ParseData) {
+          // get the parse data and the outlinks from the parse data, along with
+          // the fetch time for those links
+          ParseData data = (ParseData) value;
+          long fetchTime = getFetchTime(data);
+          Outlink[] outlinkAr = data.getOutlinks();
+          Map<String, String> outlinkMap = new LinkedHashMap<>();
+
+          // normalize urls and put into map
+          if (outlinkAr != null && outlinkAr.length > 0) {
+            for (int i = 0; i < outlinkAr.length; i++) {
+              Outlink outlink = outlinkAr[i];
+              String toUrl = normalizeUrl(outlink.getToUrl());
+
+              if (filterUrl(toUrl) == null) {
+                continue;
+              }
+
+              // only put into map if the url doesn't already exist in the map or
+              // if it does and the anchor for that link is null, will replace if
+              // url is existing
+              boolean existingUrl = outlinkMap.containsKey(toUrl);
+              if (toUrl != null
+                  && (!existingUrl || (existingUrl && outlinkMap.get(toUrl) == null))) {
+                outlinkMap.put(toUrl, outlink.getAnchor());
+              }
             }
           }
-        }
 
-        // collect the outlinks under the fetch time
-        for (String outlinkUrl : outlinkMap.keySet()) {
-          String anchor = outlinkMap.get(outlinkUrl);
-          LinkDatum datum = new LinkDatum(outlinkUrl, anchor, fetchTime);
-          output.collect(key, new NutchWritable(datum));
-        }
-      } else if (value instanceof LinkDatum) {
-        LinkDatum datum = (LinkDatum) value;
-        String linkDatumUrl = normalizeUrl(datum.getUrl());
+          // collect the outlinks under the fetch time
+          for (String outlinkUrl : outlinkMap.keySet()) {
+            String anchor = outlinkMap.get(outlinkUrl);
+            LinkDatum datum = new LinkDatum(outlinkUrl, anchor, fetchTime);
+            context.write(key, new NutchWritable(datum));
+          }
+        } else if (value instanceof LinkDatum) {
+          LinkDatum datum = (LinkDatum) value;
+          String linkDatumUrl = normalizeUrl(datum.getUrl());
 
-        if (filterUrl(linkDatumUrl) != null) {
-          datum.setUrl(linkDatumUrl);
+          if (filterUrl(linkDatumUrl) != null) {
+            datum.setUrl(linkDatumUrl);
 
-          // collect existing outlinks from existing OutlinkDb
-          output.collect(key, new NutchWritable(datum));
+            // collect existing outlinks from existing OutlinkDb
+            context.write(key, new NutchWritable(datum));
+          }
         }
       }
     }
 
-    public void reduce(Text key, Iterator<NutchWritable> values,
-        OutputCollector<Text, LinkDatum> output, Reporter reporter)
-        throws IOException {
+    public static class OutlinkDbReducer extends
+        Reducer<Text, NutchWritable, Text, LinkDatum> {
+      public void reduce(Text key, Iterator<NutchWritable> values,
+          Context context)
+          throws IOException {
 
-      // aggregate all outlinks, get the most recent timestamp for a fetch
-      // which should be the timestamp for all of the most recent outlinks
-      long mostRecent = 0L;
-      List<LinkDatum> outlinkList = new ArrayList<>();
-      while (values.hasNext()) {
-        Writable value = values.next().get();
+        // aggregate all outlinks, get the most recent timestamp for a fetch
+        // which should be the timestamp for all of the most recent outlinks
+        long mostRecent = 0L;
+        List<LinkDatum> outlinkList = new ArrayList<>();
+        while (values.hasNext()) {
+          Writable value = values.next().get();
 
-        if (value instanceof LinkDatum) {
-          // loop through, change out most recent timestamp if needed
-          LinkDatum next = (LinkDatum) value;
-          long timestamp = next.getTimestamp();
-          if (mostRecent == 0L || mostRecent < timestamp) {
-            mostRecent = timestamp;
-          }
-          outlinkList.add(WritableUtils.clone(next, conf));
-          reporter.incrCounter("WebGraph.outlinks", "added links", 1);
-        } else if (value instanceof BooleanWritable) {
-          BooleanWritable delete = (BooleanWritable) value;
-          // Actually, delete is always true, otherwise we don't emit it in the
-          // mapper in the first place
-          if (delete.get() == true) {
-            // This page is gone, do not emit it's outlinks
-            reporter.incrCounter("WebGraph.outlinks", "removed links", 1);
-            return;
+          if (value instanceof LinkDatum) {
+            // loop through, change out most recent timestamp if needed
+            LinkDatum next = (LinkDatum) value;
+            long timestamp = next.getTimestamp();
+            if (mostRecent == 0L || mostRecent < timestamp) {
+              mostRecent = timestamp;
+            }
+            outlinkList.add(WritableUtils.clone(next, conf));
+            context.getCounter("WebGraph.outlinks", "added links").increment(1);
+          } else if (value instanceof BooleanWritable) {
+            BooleanWritable delete = (BooleanWritable) value;
+            // Actually, delete is always true, otherwise we don't emit it in the
+            // mapper in the first place
+            if (delete.get() == true) {
+              // This page is gone, do not emit it's outlinks
+              context.getCounter("WebGraph.outlinks", "removed links").increment(1);
+              return;
+            }
           }
         }
-      }
 
-      // get the url, domain, and host for the url
-      String url = key.toString();
-      String domain = URLUtil.getDomainName(url);
-      String host = URLUtil.getHost(url);
+        // get the url, domain, and host for the url
+        String url = key.toString();
+        String domain = URLUtil.getDomainName(url);
+        String host = URLUtil.getHost(url);
 
-      // setup checking sets for domains and pages
-      Set<String> domains = new HashSet<>();
-      Set<String> pages = new HashSet<>();
+        // setup checking sets for domains and pages
+        Set<String> domains = new HashSet<>();
+        Set<String> pages = new HashSet<>();
 
-      // loop through the link datums
-      for (LinkDatum datum : outlinkList) {
+        // loop through the link datums
+        for (LinkDatum datum : outlinkList) {
 
-        // get the url, host, domain, and page for each outlink
-        String toUrl = datum.getUrl();
-        String toDomain = URLUtil.getDomainName(toUrl);
-        String toHost = URLUtil.getHost(toUrl);
-        String toPage = URLUtil.getPage(toUrl);
-        datum.setLinkType(LinkDatum.OUTLINK);
+          // get the url, host, domain, and page for each outlink
+          String toUrl = datum.getUrl();
+          String toDomain = URLUtil.getDomainName(toUrl);
+          String toHost = URLUtil.getHost(toUrl);
+          String toPage = URLUtil.getPage(toUrl);
+          datum.setLinkType(LinkDatum.OUTLINK);
 
-        // outlinks must be the most recent and conform to internal url and
-        // limiting rules, if it does collect it
-        if (datum.getTimestamp() == mostRecent
-            && (!limitPages || (limitPages && !pages.contains(toPage)))
-            && (!limitDomains || (limitDomains && !domains.contains(toDomain)))
-            && (!ignoreHost || (ignoreHost && !toHost.equalsIgnoreCase(host)))
-            && (!ignoreDomain || (ignoreDomain && !toDomain
-                .equalsIgnoreCase(domain)))) {
-          output.collect(key, datum);
-          pages.add(toPage);
-          domains.add(toDomain);
+          // outlinks must be the most recent and conform to internal url and
+          // limiting rules, if it does collect it
+          if (datum.getTimestamp() == mostRecent
+              && (!limitPages || (limitPages && !pages.contains(toPage)))
+              && (!limitDomains || (limitDomains && !domains.contains(toDomain)))
+              && (!ignoreHost || (ignoreHost && !toHost.equalsIgnoreCase(host)))
+              && (!ignoreDomain || (ignoreDomain && !toDomain
+                  .equalsIgnoreCase(domain)))) {
+            context.write(key, datum);
+            pages.add(toPage);
+            domains.add(toDomain);
+          }
         }
       }
     }
@@ -399,16 +402,15 @@ public class WebGraph extends Configured implements Tool {
    * OutlinkDb LinkDatum objects and are regenerated each time the WebGraph is
    * updated.
    */
-  private static class InlinkDb extends Configured implements
-      Mapper<Text, LinkDatum, Text, LinkDatum> {
+  private static class InlinkDb extends Configured{
 
-    private long timestamp;
+    private static long timestamp;
 
     /**
      * Configures job. Sets timestamp for all Inlink LinkDatum objects to the
      * current system time.
      */
-    public void configure(JobConf conf) {
+    public void configure(Job job) {
       timestamp = System.currentTimeMillis();
     }
 
@@ -419,19 +421,22 @@ public class WebGraph extends Configured implements Tool {
      * Inverts the Outlink LinkDatum objects into new LinkDatum objects with a
      * new system timestamp, type and to and from url switched.
      */
-    public void map(Text key, LinkDatum datum,
-        OutputCollector<Text, LinkDatum> output, Reporter reporter)
-        throws IOException {
+    public static class InlinkDbMapper extends
+        Mapper<Text, LinkDatum, Text, LinkDatum> {
+      public void map(Text key, LinkDatum datum,
+          Context context)
+          throws IOException {
 
-      // get the to and from url and the anchor
-      String fromUrl = key.toString();
-      String toUrl = datum.getUrl();
-      String anchor = datum.getAnchor();
+        // get the to and from url and the anchor
+        String fromUrl = key.toString();
+        String toUrl = datum.getUrl();
+        String anchor = datum.getAnchor();
 
-      // flip the from and to url and set the new link type
-      LinkDatum inlink = new LinkDatum(fromUrl, anchor, timestamp);
-      inlink.setLinkType(LinkDatum.INLINK);
-      output.collect(new Text(toUrl), inlink);
+        // flip the from and to url and set the new link type
+        LinkDatum inlink = new LinkDatum(fromUrl, anchor, timestamp);
+        inlink.setLinkType(LinkDatum.INLINK);
+        context.write(new Text(toUrl), inlink);
+      }
     }
   }
 
@@ -439,13 +444,12 @@ public class WebGraph extends Configured implements Tool {
    * Creates the Node database which consists of the number of in and outlinks
    * for each url and a score slot for analysis programs such as LinkRank.
    */
-  private static class NodeDb extends Configured implements
-      Reducer<Text, LinkDatum, Text, Node> {
+  private static class NodeDb extends Configured {
 
     /**
      * Configures job.
      */
-    public void configure(JobConf conf) {
+    public void configure(Job job) {
     }
 
     public void close() {
@@ -455,29 +459,31 @@ public class WebGraph extends Configured implements Tool {
      * Counts the number of inlinks and outlinks for each url and sets a default
      * score of 0.0 for each url (node) in the webgraph.
      */
-    public void reduce(Text key, Iterator<LinkDatum> values,
-        OutputCollector<Text, Node> output, Reporter reporter)
-        throws IOException {
+    public static class NodeDbReducer extends 
+        Reducer<Text, LinkDatum, Text, Node> {
+      public void reduce(Text key, Iterator<LinkDatum> values,
+          Context context) throws IOException {
 
-      Node node = new Node();
-      int numInlinks = 0;
-      int numOutlinks = 0;
+        Node node = new Node();
+        int numInlinks = 0;
+        int numOutlinks = 0;
 
-      // loop through counting number of in and out links
-      while (values.hasNext()) {
-        LinkDatum next = values.next();
-        if (next.getLinkType() == LinkDatum.INLINK) {
-          numInlinks++;
-        } else if (next.getLinkType() == LinkDatum.OUTLINK) {
-          numOutlinks++;
+        // loop through counting number of in and out links
+        while (values.hasNext()) {
+          LinkDatum next = values.next();
+          if (next.getLinkType() == LinkDatum.INLINK) {
+            numInlinks++;
+          } else if (next.getLinkType() == LinkDatum.OUTLINK) {
+            numOutlinks++;
+          }
         }
-      }
 
-      // set the in and outlinks and a default score of 0
-      node.setNumInlinks(numInlinks);
-      node.setNumOutlinks(numOutlinks);
-      node.setInlinkScore(0.0f);
-      output.collect(key, node);
+        // set the in and outlinks and a default score of 0
+        node.setNumInlinks(numInlinks);
+        node.setNumOutlinks(numOutlinks);
+        node.setInlinkScore(0.0f);
+        context.write(key, node);
+      }
     }
   }
 
@@ -532,7 +538,7 @@ public class WebGraph extends Configured implements Tool {
 
     Path tempOutlinkDb = new Path(outlinkDb + "-"
         + Integer.toString(new Random().nextInt(Integer.MAX_VALUE)));
-    JobConf outlinkJob = new NutchJob(conf);
+    Job outlinkJob = new NutchJob(conf);
     outlinkJob.setJobName("Outlinkdb: " + outlinkDb);
 
     boolean deleteGone = conf.getBoolean("link.delete.gone", false);
@@ -566,25 +572,26 @@ public class WebGraph extends Configured implements Tool {
     LOG.info("OutlinkDb: adding input: " + outlinkDb);
     FileInputFormat.addInputPath(outlinkJob, outlinkDb);
 
-    outlinkJob.setBoolean(OutlinkDb.URL_NORMALIZING, normalize);
-    outlinkJob.setBoolean(OutlinkDb.URL_FILTERING, filter);
+    conf.setBoolean(OutlinkDb.URL_NORMALIZING, normalize);
+    conf.setBoolean(OutlinkDb.URL_FILTERING, filter);
 
-    outlinkJob.setInputFormat(SequenceFileInputFormat.class);
-    outlinkJob.setMapperClass(OutlinkDb.class);
-    outlinkJob.setReducerClass(OutlinkDb.class);
+    outlinkJob.setInputFormatClass(SequenceFileInputFormat.class);
+    outlinkJob.setJarByClass(OutlinkDb.class);
+    outlinkJob.setMapperClass(OutlinkDb.OutlinkDbMapper.class);
+    outlinkJob.setReducerClass(OutlinkDb.OutlinkDbReducer.class);
     outlinkJob.setMapOutputKeyClass(Text.class);
     outlinkJob.setMapOutputValueClass(NutchWritable.class);
     outlinkJob.setOutputKeyClass(Text.class);
     outlinkJob.setOutputValueClass(LinkDatum.class);
     FileOutputFormat.setOutputPath(outlinkJob, tempOutlinkDb);
-    outlinkJob.setOutputFormat(MapFileOutputFormat.class);
-    outlinkJob.setBoolean("mapreduce.fileoutputcommitter.marksuccessfuljobs",
+    outlinkJob.setOutputFormatClass(MapFileOutputFormat.class);
+    conf.setBoolean("mapreduce.fileoutputcommitter.marksuccessfuljobs",
         false);
 
     // run the outlinkdb job and replace any old outlinkdb with the new one
     try {
       LOG.info("OutlinkDb: running");
-      JobClient.runJob(outlinkJob);
+      int complete = outlinkJob.waitForCompletion(true)?0:1;
       LOG.info("OutlinkDb: installing " + outlinkDb);
       FSUtils.replace(fs, oldOutlinkDb, outlinkDb, true);
       FSUtils.replace(fs, outlinkDb, tempOutlinkDb, true);
@@ -607,26 +614,27 @@ public class WebGraph extends Configured implements Tool {
     Path tempInlinkDb = new Path(inlinkDb + "-"
         + Integer.toString(new Random().nextInt(Integer.MAX_VALUE)));
 
-    JobConf inlinkJob = new NutchJob(conf);
+    Job inlinkJob = new NutchJob(conf);
     inlinkJob.setJobName("Inlinkdb " + inlinkDb);
     LOG.info("InlinkDb: adding input: " + outlinkDb);
     FileInputFormat.addInputPath(inlinkJob, outlinkDb);
-    inlinkJob.setInputFormat(SequenceFileInputFormat.class);
-    inlinkJob.setMapperClass(InlinkDb.class);
+    inlinkJob.setInputFormatClass(SequenceFileInputFormat.class);
+    inlinkJob.setJarByClass(InlinkDb.class);
+    inlinkJob.setMapperClass(InlinkDb.InlinkDbMapper.class);
     inlinkJob.setMapOutputKeyClass(Text.class);
     inlinkJob.setMapOutputValueClass(LinkDatum.class);
     inlinkJob.setOutputKeyClass(Text.class);
     inlinkJob.setOutputValueClass(LinkDatum.class);
     FileOutputFormat.setOutputPath(inlinkJob, tempInlinkDb);
-    inlinkJob.setOutputFormat(MapFileOutputFormat.class);
-    inlinkJob.setBoolean("mapreduce.fileoutputcommitter.marksuccessfuljobs",
+    inlinkJob.setOutputFormatClass(MapFileOutputFormat.class);
+    conf.setBoolean("mapreduce.fileoutputcommitter.marksuccessfuljobs",
         false);
 
     try {
 
       // run the inlink and replace any old with new
       LOG.info("InlinkDb: running");
-      JobClient.runJob(inlinkJob);
+      int complete = inlinkJob.waitForCompletion(true)?0:1;
       LOG.info("InlinkDb: installing " + inlinkDb);
       FSUtils.replace(fs, inlinkDb, tempInlinkDb, true);
       LOG.info("InlinkDb: finished");
@@ -646,28 +654,29 @@ public class WebGraph extends Configured implements Tool {
     Path tempNodeDb = new Path(nodeDb + "-"
         + Integer.toString(new Random().nextInt(Integer.MAX_VALUE)));
 
-    JobConf nodeJob = new NutchJob(conf);
+    Job nodeJob = new NutchJob(conf);
     nodeJob.setJobName("NodeDb " + nodeDb);
     LOG.info("NodeDb: adding input: " + outlinkDb);
     LOG.info("NodeDb: adding input: " + inlinkDb);
     FileInputFormat.addInputPath(nodeJob, outlinkDb);
     FileInputFormat.addInputPath(nodeJob, inlinkDb);
-    nodeJob.setInputFormat(SequenceFileInputFormat.class);
-    nodeJob.setReducerClass(NodeDb.class);
+    nodeJob.setInputFormatClass(SequenceFileInputFormat.class);
+    nodeJob.setJarByClass(NodeDb.class);
+    nodeJob.setReducerClass(NodeDb.NodeDbReducer.class);
     nodeJob.setMapOutputKeyClass(Text.class);
     nodeJob.setMapOutputValueClass(LinkDatum.class);
     nodeJob.setOutputKeyClass(Text.class);
     nodeJob.setOutputValueClass(Node.class);
     FileOutputFormat.setOutputPath(nodeJob, tempNodeDb);
-    nodeJob.setOutputFormat(MapFileOutputFormat.class);
-    nodeJob.setBoolean("mapreduce.fileoutputcommitter.marksuccessfuljobs",
+    nodeJob.setOutputFormatClass(MapFileOutputFormat.class);
+    conf.setBoolean("mapreduce.fileoutputcommitter.marksuccessfuljobs",
         false);
 
     try {
 
       // run the node job and replace old nodedb with new
       LOG.info("NodeDb: running");
-      JobClient.runJob(nodeJob);
+      int complete = nodeJob.waitForCompletion(true)?0:1;
       LOG.info("NodeDb: installing " + nodeDb);
       FSUtils.replace(fs, nodeDb, tempNodeDb, true);
       LOG.info("NodeDb: finished");

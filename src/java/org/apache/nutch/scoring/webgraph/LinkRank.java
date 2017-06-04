@@ -47,18 +47,16 @@ import org.apache.hadoop.io.ObjectWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.io.WritableUtils;
-import org.apache.hadoop.mapred.FileInputFormat;
-import org.apache.hadoop.mapred.FileOutputFormat;
-import org.apache.hadoop.mapred.JobClient;
-import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.mapred.MapFileOutputFormat;
-import org.apache.hadoop.mapred.Mapper;
-import org.apache.hadoop.mapred.OutputCollector;
-import org.apache.hadoop.mapred.Reducer;
-import org.apache.hadoop.mapred.Reporter;
-import org.apache.hadoop.mapred.SequenceFileInputFormat;
-import org.apache.hadoop.mapred.SequenceFileOutputFormat;
-import org.apache.hadoop.mapred.TextOutputFormat;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.lib.output.MapFileOutputFormat;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Mapper.Context;
+import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.lib.input.SequenceFileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.SequenceFileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.apache.hadoop.util.StringUtils;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
@@ -92,27 +90,29 @@ public class LinkRank extends Configured implements Tool {
     // configure the counter job
     Path numLinksPath = new Path(webGraphDb, NUM_NODES);
     Path nodeDb = new Path(webGraphDb, WebGraph.NODE_DIR);
-    JobConf counter = new NutchJob(getConf());
+    Job counter = new NutchJob(getConf());
+    Configuration conf = counter.getConfiguration();
     counter.setJobName("LinkRank Counter");
     FileInputFormat.addInputPath(counter, nodeDb);
     FileOutputFormat.setOutputPath(counter, numLinksPath);
-    counter.setInputFormat(SequenceFileInputFormat.class);
-    counter.setMapperClass(Counter.class);
-    counter.setCombinerClass(Counter.class);
-    counter.setReducerClass(Counter.class);
+    counter.setInputFormatClass(SequenceFileInputFormat.class);
+    counter.setJarByClass(Counter.class);
+    counter.setMapperClass(Counter.CountMapper.class);
+    counter.setCombinerClass(Counter.CountReducer.class);
+    counter.setReducerClass(Counter.CountReducer.class);
     counter.setMapOutputKeyClass(Text.class);
     counter.setMapOutputValueClass(LongWritable.class);
     counter.setOutputKeyClass(Text.class);
     counter.setOutputValueClass(LongWritable.class);
     counter.setNumReduceTasks(1);
-    counter.setOutputFormat(TextOutputFormat.class);
-    counter.setBoolean("mapreduce.fileoutputcommitter.marksuccessfuljobs",
+    counter.setOutputFormatClass(TextOutputFormat.class);
+    conf.setBoolean("mapreduce.fileoutputcommitter.marksuccessfuljobs",
         false);
 
     // run the counter job, outputs to a single reduce task and file
     LOG.info("Starting link counter job");
     try {
-      JobClient.runJob(counter);
+      int complete = counter.waitForCompletion(true)?0:1;
     } catch (IOException e) {
       LOG.error(StringUtils.stringifyException(e));
       throw e;
@@ -155,24 +155,25 @@ public class LinkRank extends Configured implements Tool {
   private void runInitializer(Path nodeDb, Path output) throws IOException {
 
     // configure the initializer
-    JobConf initializer = new NutchJob(getConf());
+    Job initializer = new NutchJob(getConf());
+    Configuration conf = initializer.getConfiguration();
     initializer.setJobName("LinkAnalysis Initializer");
     FileInputFormat.addInputPath(initializer, nodeDb);
     FileOutputFormat.setOutputPath(initializer, output);
-    initializer.setInputFormat(SequenceFileInputFormat.class);
+    initializer.setInputFormatClass(SequenceFileInputFormat.class);
     initializer.setMapperClass(Initializer.class);
     initializer.setMapOutputKeyClass(Text.class);
     initializer.setMapOutputValueClass(Node.class);
     initializer.setOutputKeyClass(Text.class);
     initializer.setOutputValueClass(Node.class);
-    initializer.setOutputFormat(MapFileOutputFormat.class);
-    initializer.setBoolean("mapreduce.fileoutputcommitter.marksuccessfuljobs",
+    initializer.setOutputFormatClass(MapFileOutputFormat.class);
+    conf.setBoolean("mapreduce.fileoutputcommitter.marksuccessfuljobs",
         false);
 
     // run the initializer
     LOG.info("Starting initialization job");
     try {
-      JobClient.runJob(initializer);
+      int complete = initializer.waitForCompletion(true)?0:1;
     } catch (IOException e) {
       LOG.error(StringUtils.stringifyException(e));
       throw e;
@@ -198,26 +199,28 @@ public class LinkRank extends Configured implements Tool {
       throws IOException {
 
     // configure the inverter
-    JobConf inverter = new NutchJob(getConf());
+    Job inverter = new NutchJob(getConf());
+    Configuration conf = inverter.getConfiguration();
     inverter.setJobName("LinkAnalysis Inverter");
     FileInputFormat.addInputPath(inverter, nodeDb);
     FileInputFormat.addInputPath(inverter, outlinkDb);
     FileOutputFormat.setOutputPath(inverter, output);
-    inverter.setInputFormat(SequenceFileInputFormat.class);
-    inverter.setMapperClass(Inverter.class);
-    inverter.setReducerClass(Inverter.class);
+    inverter.setInputFormatClass(SequenceFileInputFormat.class);
+    inverter.setJarByClass(Inverter.class);
+    inverter.setMapperClass(Inverter.InvertMapper.class);
+    inverter.setReducerClass(Inverter.InvertReducer.class);
     inverter.setMapOutputKeyClass(Text.class);
     inverter.setMapOutputValueClass(ObjectWritable.class);
     inverter.setOutputKeyClass(Text.class);
     inverter.setOutputValueClass(LinkDatum.class);
-    inverter.setOutputFormat(SequenceFileOutputFormat.class);
-    inverter.setBoolean("mapreduce.fileoutputcommitter.marksuccessfuljobs",
+    inverter.setOutputFormatClass(SequenceFileOutputFormat.class);
+    conf.setBoolean("mapreduce.fileoutputcommitter.marksuccessfuljobs",
         false);
 
     // run the inverter job
     LOG.info("Starting inverter job");
     try {
-      JobClient.runJob(inverter);
+      int complete = inverter.waitForCompletion(true)?0:1;
     } catch (IOException e) {
       LOG.error(StringUtils.stringifyException(e));
       throw e;
@@ -250,28 +253,30 @@ public class LinkRank extends Configured implements Tool {
   private void runAnalysis(Path nodeDb, Path inverted, Path output,
       int iteration, int numIterations, float rankOne) throws IOException {
 
-    JobConf analyzer = new NutchJob(getConf());
-    analyzer.set("link.analyze.iteration", String.valueOf(iteration + 1));
+    Job analyzer = new NutchJob(getConf());
+    Configuration conf = analyzer.getConfiguration();
+    conf.set("link.analyze.iteration", String.valueOf(iteration + 1));
     analyzer.setJobName("LinkAnalysis Analyzer, iteration " + (iteration + 1)
         + " of " + numIterations);
     FileInputFormat.addInputPath(analyzer, nodeDb);
     FileInputFormat.addInputPath(analyzer, inverted);
     FileOutputFormat.setOutputPath(analyzer, output);
-    analyzer.set("link.analyze.rank.one", String.valueOf(rankOne));
+    conf.set("link.analyze.rank.one", String.valueOf(rankOne));
     analyzer.setMapOutputKeyClass(Text.class);
     analyzer.setMapOutputValueClass(ObjectWritable.class);
-    analyzer.setInputFormat(SequenceFileInputFormat.class);
-    analyzer.setMapperClass(Analyzer.class);
-    analyzer.setReducerClass(Analyzer.class);
+    analyzer.setInputFormatClass(SequenceFileInputFormat.class);
+    analyzer.setJarByClass(Analyzer.class);
+    analyzer.setMapperClass(Analyzer.AnalyzerMapper.class);
+    analyzer.setReducerClass(Analyzer.AnalyzerReducer.class);
     analyzer.setOutputKeyClass(Text.class);
     analyzer.setOutputValueClass(Node.class);
-    analyzer.setOutputFormat(MapFileOutputFormat.class);
-    analyzer.setBoolean("mapreduce.fileoutputcommitter.marksuccessfuljobs",
+    analyzer.setOutputFormatClass(MapFileOutputFormat.class);
+    conf.setBoolean("mapreduce.fileoutputcommitter.marksuccessfuljobs",
         false);
 
     LOG.info("Starting analysis job");
     try {
-      JobClient.runJob(analyzer);
+      int complete = analyzer.waitForCompletion(true)?0:1;
     } catch (IOException e) {
       LOG.error(StringUtils.stringifyException(e));
       throw e;
@@ -284,61 +289,65 @@ public class LinkRank extends Configured implements Tool {
    * This is used to determine a rank one score for pages with zero inlinks but
    * that contain outlinks.
    */
-  private static class Counter implements
-      Mapper<Text, Node, Text, LongWritable>,
-      Reducer<Text, LongWritable, Text, LongWritable> {
+  private static class Counter {
 
     private static Text numNodes = new Text(NUM_NODES);
     private static LongWritable one = new LongWritable(1L);
 
-    public void configure(JobConf conf) {
+    public void configure(Job job) {
     }
 
     /**
      * Outputs one for every node.
      */
-    public void map(Text key, Node value,
-        OutputCollector<Text, LongWritable> output, Reporter reporter)
-        throws IOException {
-      output.collect(numNodes, one);
+    public static class CountMapper extends
+        Mapper<Text, Node, Text, LongWritable> {
+      public void map(Text key, Node value,
+          Context context)
+          throws IOException {
+        context.write(numNodes, one);
+      }
     }
 
     /**
      * Totals the node number and outputs a single total value.
      */
-    public void reduce(Text key, Iterator<LongWritable> values,
-        OutputCollector<Text, LongWritable> output, Reporter reporter)
-        throws IOException {
+    public static class CountReducer extends
+        Reducer<Text, LongWritable, Text, LongWritable> {
+      public void reduce(Text key, Iterator<LongWritable> values,
+          Context context)
+          throws IOException {
 
-      long total = 0;
-      while (values.hasNext()) {
-        total += values.next().get();
+        long total = 0;
+        while (values.hasNext()) {
+          total += values.next().get();
+        }
+        context.write(numNodes, new LongWritable(total));
       }
-      output.collect(numNodes, new LongWritable(total));
     }
 
     public void close() {
     }
   }
 
-  private static class Initializer implements Mapper<Text, Node, Text, Node> {
+  private static class Initializer extends Mapper<Text, Node, Text, Node> {
 
-    private JobConf conf;
-    private float initialScore = 1.0f;
+    private static Configuration conf;
+    private static float initialScore = 1.0f;
 
-    public void configure(JobConf conf) {
+    public void configure(Job job) {
+      Configuration conf = job.getConfiguration();
       this.conf = conf;
       initialScore = conf.getFloat("link.analyze.initial.score", 1.0f);
     }
 
-    public void map(Text key, Node node, OutputCollector<Text, Node> output,
-        Reporter reporter) throws IOException {
+    public void map(Text key, Node node, Context context) throws IOException {
 
       String url = key.toString();
       Node outNode = WritableUtils.clone(node, conf);
       outNode.setInlinkScore(initialScore);
 
-      output.collect(new Text(url), outNode);
+      context.write(new Text(url), outNode);
     }
 
     public void close() {
@@ -350,72 +359,77 @@ public class LinkRank extends Configured implements Tool {
    * WebGraph. The link analysis process consists of inverting, analyzing and
    * scoring, in a loop for a given number of iterations.
    */
-  private static class Inverter implements
-      Mapper<Text, Writable, Text, ObjectWritable>,
-      Reducer<Text, ObjectWritable, Text, LinkDatum> {
+  private static class Inverter {
 
-    private JobConf conf;
+    private static Configuration conf;
 
-    public void configure(JobConf conf) {
+    public void configure(Job job) {
+      Configuration conf = job.getConfiguration();
       this.conf = conf;
     }
 
     /**
      * Convert values to ObjectWritable
      */
-    public void map(Text key, Writable value,
-        OutputCollector<Text, ObjectWritable> output, Reporter reporter)
-        throws IOException {
+    public static class InvertMapper extends 
+        Mapper<Text, Writable, Text, ObjectWritable> {
+      public void map(Text key, Writable value,
+          Context context)
+          throws IOException {
 
-      ObjectWritable objWrite = new ObjectWritable();
-      objWrite.set(value);
-      output.collect(key, objWrite);
+        ObjectWritable objWrite = new ObjectWritable();
+        objWrite.set(value);
+        context.write(key, objWrite);
+      }
     }
 
     /**
      * Inverts outlinks to inlinks, attaches current score for the outlink from
      * the NodeDb of the WebGraph.
      */
-    public void reduce(Text key, Iterator<ObjectWritable> values,
-        OutputCollector<Text, LinkDatum> output, Reporter reporter)
-        throws IOException {
+    public static class InvertReducer extends
+        Reducer<Text, ObjectWritable, Text, LinkDatum> {
+      public void reduce(Text key, Iterator<ObjectWritable> values,
+          Context context)
+          throws IOException {
 
-      String fromUrl = key.toString();
-      List<LinkDatum> outlinks = new ArrayList<>();
-      Node node = null;
+        String fromUrl = key.toString();
+        List<LinkDatum> outlinks = new ArrayList<>();
+        Node node = null;
 
-      // aggregate outlinks, assign other values
-      while (values.hasNext()) {
-        ObjectWritable write = values.next();
-        Object obj = write.get();
-        if (obj instanceof Node) {
-          node = (Node) obj;
-        } else if (obj instanceof LinkDatum) {
-          outlinks.add(WritableUtils.clone((LinkDatum) obj, conf));
+        // aggregate outlinks, assign other values
+        while (values.hasNext()) {
+          ObjectWritable write = values.next();
+          Object obj = write.get();
+          if (obj instanceof Node) {
+            node = (Node) obj;
+          } else if (obj instanceof LinkDatum) {
+            outlinks.add(WritableUtils.clone((LinkDatum) obj, conf));
+          }
         }
-      }
 
-      // get the number of outlinks and the current inlink and outlink scores
-      // from the node of the url
-      int numOutlinks = node.getNumOutlinks();
-      float inlinkScore = node.getInlinkScore();
-      float outlinkScore = node.getOutlinkScore();
-      LOG.debug(fromUrl + ": num outlinks " + numOutlinks);
+        // get the number of outlinks and the current inlink and outlink scores
+        // from the node of the url
+        int numOutlinks = node.getNumOutlinks();
+        float inlinkScore = node.getInlinkScore();
+        float outlinkScore = node.getOutlinkScore();
+        LOG.debug(fromUrl + ": num outlinks " + numOutlinks);
 
-      // can't invert if no outlinks
-      if (numOutlinks > 0) {
-        for (int i = 0; i < outlinks.size(); i++) {
-          LinkDatum outlink = outlinks.get(i);
-          String toUrl = outlink.getUrl();
+        // can't invert if no outlinks
+        if (numOutlinks > 0) {
+          for (int i = 0; i < outlinks.size(); i++) {
+            LinkDatum outlink = outlinks.get(i);
+            String toUrl = outlink.getUrl();
 
-          outlink.setUrl(fromUrl);
-          outlink.setScore(outlinkScore);
+            outlink.setUrl(fromUrl);
+            outlink.setScore(outlinkScore);
 
-          // collect the inverted outlink
-          output.collect(new Text(toUrl), outlink);
-          LOG.debug(toUrl + ": inverting inlink from " + fromUrl
-              + " origscore: " + inlinkScore + " numOutlinks: " + numOutlinks
-              + " inlinkscore: " + outlinkScore);
+            // collect the inverted outlink
+            context.write(new Text(toUrl), outlink);
+            LOG.debug(toUrl + ": inverting inlink from " + fromUrl
+                + " origscore: " + inlinkScore + " numOutlinks: " + numOutlinks
+                + " inlinkscore: " + outlinkScore);
+          }
         }
       }
     }
@@ -427,24 +441,22 @@ public class LinkRank extends Configured implements Tool {
   /**
    * Runs a single link analysis iteration.
    */
-  private static class Analyzer implements
-      Mapper<Text, Writable, Text, ObjectWritable>,
-      Reducer<Text, ObjectWritable, Text, Node> {
+  private static class Analyzer {
 
-    private JobConf conf;
-    private float dampingFactor = 0.85f;
-    private float rankOne = 0.0f;
-    private int itNum = 0;
-    private boolean limitPages = true;
-    private boolean limitDomains = true;
+    private static Configuration conf;
+    private static float dampingFactor = 0.85f;
+    private static float rankOne = 0.0f;
+    private static int itNum = 0;
+    private static boolean limitPages = true;
+    private static boolean limitDomains = true;
 
     /**
      * Configures the job, sets the damping factor, rank one score, and other
      * needed values for analysis.
      */
-    public void configure(JobConf conf) {
-
+    public void configure(Job job) {
       try {
+        Configuration conf = job.getConfiguration();
         this.conf = conf;
         this.dampingFactor = conf
             .getFloat("link.analyze.damping.factor", 0.85f);
@@ -461,75 +473,81 @@ public class LinkRank extends Configured implements Tool {
     /**
      * Convert values to ObjectWritable
      */
-    public void map(Text key, Writable value,
-        OutputCollector<Text, ObjectWritable> output, Reporter reporter)
-        throws IOException {
+    public static class AnalyzerMapper extends 
+        Mapper<Text, Writable, Text, ObjectWritable> {
+      public void map(Text key, Writable value,
+          Context context)
+          throws IOException {
 
-      ObjectWritable objWrite = new ObjectWritable();
-      objWrite.set(WritableUtils.clone(value, conf));
-      output.collect(key, objWrite);
+        ObjectWritable objWrite = new ObjectWritable();
+        objWrite.set(WritableUtils.clone(value, conf));
+        context.write(key, objWrite);
+      }
     }
 
     /**
      * Performs a single iteration of link analysis. The resulting scores are
      * stored in a temporary NodeDb which replaces the NodeDb of the WebGraph.
      */
-    public void reduce(Text key, Iterator<ObjectWritable> values,
-        OutputCollector<Text, Node> output, Reporter reporter)
-        throws IOException {
+    public static class AnalyzerReducer extends
+        Reducer<Text, ObjectWritable, Text, Node> {
+      public void reduce(Text key, Iterator<ObjectWritable> values,
+          Context context)
+          throws IOException {
 
-      String url = key.toString();
-      Set<String> domains = new HashSet<>();
-      Set<String> pages = new HashSet<>();
-      Node node = null;
+        String url = key.toString();
+        Set<String> domains = new HashSet<>();
+        Set<String> pages = new HashSet<>();
+        Node node = null;
 
-      // a page with zero inlinks has a score of rankOne
-      int numInlinks = 0;
-      float totalInlinkScore = rankOne;
+        // a page with zero inlinks has a score of rankOne
+        int numInlinks = 0;
+        float totalInlinkScore = rankOne;
 
-      while (values.hasNext()) {
+        while (values.hasNext()) {
 
-        ObjectWritable next = values.next();
-        Object value = next.get();
-        if (value instanceof Node) {
-          node = (Node) value;
-        } else if (value instanceof LinkDatum) {
+          ObjectWritable next = values.next();
+          Object value = next.get();
+          if (value instanceof Node) {
+            node = (Node) value;
+          } else if (value instanceof LinkDatum) {
 
-          LinkDatum linkDatum = (LinkDatum) value;
-          float scoreFromInlink = linkDatum.getScore();
-          String inlinkUrl = linkDatum.getUrl();
-          String inLinkDomain = URLUtil.getDomainName(inlinkUrl);
-          String inLinkPage = URLUtil.getPage(inlinkUrl);
+            LinkDatum linkDatum = (LinkDatum) value;
+            float scoreFromInlink = linkDatum.getScore();
+            String inlinkUrl = linkDatum.getUrl();
+            String inLinkDomain = URLUtil.getDomainName(inlinkUrl);
+            String inLinkPage = URLUtil.getPage(inlinkUrl);
 
-          // limit counting duplicate inlinks by pages or domains
-          if ((limitPages && pages.contains(inLinkPage))
-              || (limitDomains && domains.contains(inLinkDomain))) {
-            LOG.debug(url + ": ignoring " + scoreFromInlink + " from "
-                + inlinkUrl + ", duplicate page or domain");
-            continue;
+            // limit counting duplicate inlinks by pages or domains
+            if ((limitPages && pages.contains(inLinkPage))
+                || (limitDomains && domains.contains(inLinkDomain))) {
+              LOG.debug(url + ": ignoring " + scoreFromInlink + " from "
+                  + inlinkUrl + ", duplicate page or domain");
+              continue;
+            }
+
+            // aggregate total inlink score
+            numInlinks++;
+            totalInlinkScore += scoreFromInlink;
+            domains.add(inLinkDomain);
+            pages.add(inLinkPage);
+            LOG.debug(url + ": adding " + scoreFromInlink + " from " + inlinkUrl
+                + ", total: " + totalInlinkScore);
           }
-
-          // aggregate total inlink score
-          numInlinks++;
-          totalInlinkScore += scoreFromInlink;
-          domains.add(inLinkDomain);
-          pages.add(inLinkPage);
-          LOG.debug(url + ": adding " + scoreFromInlink + " from " + inlinkUrl
-              + ", total: " + totalInlinkScore);
         }
+
+        // calculate linkRank score formula
+        float linkRankScore = (1 - dampingFactor)
+            + (dampingFactor * totalInlinkScore);
+
+        LOG.debug(url + ": score: " + linkRankScore + " num inlinks: "
+            + numInlinks + " iteration: " + itNum);
+
+        // store the score in a temporary NodeDb
+        Node outNode = WritableUtils.clone(node, conf);
+        outNode.setInlinkScore(linkRankScore);
+        context.write(key, outNode);
       }
-
-      // calculate linkRank score formula
-      float linkRankScore = (1 - this.dampingFactor)
-          + (this.dampingFactor * totalInlinkScore);
-
-      LOG.debug(url + ": score: " + linkRankScore + " num inlinks: "
-          + numInlinks + " iteration: " + itNum);
-
-      // store the score in a temporary NodeDb
-      Node outNode = WritableUtils.clone(node, conf);
-      outNode.setInlinkScore(linkRankScore);
-      output.collect(key, outNode);
     }
 
     public void close() throws IOException {

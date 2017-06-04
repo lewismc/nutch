@@ -45,17 +45,15 @@ import org.apache.hadoop.io.ObjectWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.io.WritableUtils;
-import org.apache.hadoop.mapred.FileInputFormat;
-import org.apache.hadoop.mapred.FileOutputFormat;
-import org.apache.hadoop.mapred.JobClient;
-import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.mapred.MapFileOutputFormat;
-import org.apache.hadoop.mapred.Mapper;
-import org.apache.hadoop.mapred.OutputCollector;
-import org.apache.hadoop.mapred.Reducer;
-import org.apache.hadoop.mapred.Reporter;
-import org.apache.hadoop.mapred.SequenceFileInputFormat;
-import org.apache.hadoop.mapred.SequenceFileOutputFormat;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.Mapper.Context;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.output.MapFileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.input.SequenceFileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.SequenceFileOutputFormat;
 import org.apache.hadoop.mapred.lib.HashPartitioner;
 import org.apache.hadoop.util.StringUtils;
 import org.apache.hadoop.util.Tool;
@@ -96,7 +94,7 @@ public class LinkDumper extends Configured implements Tool {
       Path webGraphDb = new Path(args[0]);
       FileSystem fs = webGraphDb.getFileSystem(conf);
       String url = args[1];
-      MapFile.Reader[] readers = MapFileOutputFormat.getReaders(fs, new Path(
+      MapFile.Reader[] readers = MapFileOutputFormat.getReaders(new Path(
           webGraphDb, DUMP_DIR), conf);
 
       // get the link nodes for the url
@@ -214,60 +212,65 @@ public class LinkDumper extends Configured implements Tool {
    * Inverts outlinks from the WebGraph to inlinks and attaches node
    * information.
    */
-  public static class Inverter implements
-      Mapper<Text, Writable, Text, ObjectWritable>,
-      Reducer<Text, ObjectWritable, Text, LinkNode> {
+  public static class Inverter {
 
-    private JobConf conf;
+    private static Configuration conf;
 
-    public void configure(JobConf conf) {
+    public void configure(Job job) {
+      Configuration conf = job.getConfiguration();
       this.conf = conf;
     }
 
     /**
      * Wraps all values in ObjectWritables.
      */
-    public void map(Text key, Writable value,
-        OutputCollector<Text, ObjectWritable> output, Reporter reporter)
-        throws IOException {
+    public static class InvertMapper extends 
+        Mapper<Text, Writable, Text, ObjectWritable> {
+      public void map(Text key, Writable value,
+          Context context)
+          throws IOException {
 
-      ObjectWritable objWrite = new ObjectWritable();
-      objWrite.set(value);
-      output.collect(key, objWrite);
+        ObjectWritable objWrite = new ObjectWritable();
+        objWrite.set(value);
+        context.write(key, objWrite);
+      }
     }
 
     /**
      * Inverts outlinks to inlinks while attaching node information to the
      * outlink.
      */
-    public void reduce(Text key, Iterator<ObjectWritable> values,
-        OutputCollector<Text, LinkNode> output, Reporter reporter)
-        throws IOException {
+    public static class InvertReducer extends
+        Reducer<Text, ObjectWritable, Text, LinkNode> {
+      public void reduce(Text key, Iterator<ObjectWritable> values,
+          Context context)
+          throws IOException {
 
-      String fromUrl = key.toString();
-      List<LinkDatum> outlinks = new ArrayList<>();
-      Node node = null;
-      
-      // loop through all values aggregating outlinks, saving node
-      while (values.hasNext()) {
-        ObjectWritable write = values.next();
-        Object obj = write.get();
-        if (obj instanceof Node) {
-          node = (Node) obj;
-        } else if (obj instanceof LinkDatum) {
-          outlinks.add(WritableUtils.clone((LinkDatum) obj, conf));
+        String fromUrl = key.toString();
+        List<LinkDatum> outlinks = new ArrayList<>();
+        Node node = null;
+        
+        // loop through all values aggregating outlinks, saving node
+        while (values.hasNext()) {
+          ObjectWritable write = values.next();
+          Object obj = write.get();
+          if (obj instanceof Node) {
+            node = (Node) obj;
+          } else if (obj instanceof LinkDatum) {
+            outlinks.add(WritableUtils.clone((LinkDatum) obj, conf));
+          }
         }
-      }
 
-      // only collect if there are outlinks
-      int numOutlinks = node.getNumOutlinks();
-      if (numOutlinks > 0) {
-        for (int i = 0; i < outlinks.size(); i++) {
-          LinkDatum outlink = outlinks.get(i);
-          String toUrl = outlink.getUrl();
+        // only collect if there are outlinks
+        int numOutlinks = node.getNumOutlinks();
+        if (numOutlinks > 0) {
+          for (int i = 0; i < outlinks.size(); i++) {
+            LinkDatum outlink = outlinks.get(i);
+            String toUrl = outlink.getUrl();
 
-          // collect the outlink as an inlink with the node
-          output.collect(new Text(toUrl), new LinkNode(fromUrl, node));
+            // collect the outlink as an inlink with the node
+            context.write(new Text(toUrl), new LinkNode(fromUrl, node));
+          }
         }
       }
     }
@@ -280,13 +283,14 @@ public class LinkDumper extends Configured implements Tool {
    * Merges LinkNode objects into a single array value per url. This allows all
    * values to be quickly retrieved and printed via the Reader tool.
    */
-  public static class Merger implements
+  public static class Merger extends
       Reducer<Text, LinkNode, Text, LinkNodes> {
 
-    private JobConf conf;
+    private static Configuration conf;
     private int maxInlinks = 50000;
 
-    public void configure(JobConf conf) {
+    public void configure(Job job) {
+      Configuration config = job.getConfiguration();
       this.conf = conf;
     }
 
@@ -294,7 +298,7 @@ public class LinkDumper extends Configured implements Tool {
      * Aggregate all LinkNode objects for a given url.
      */
     public void reduce(Text key, Iterator<LinkNode> values,
-        OutputCollector<Text, LinkNodes> output, Reporter reporter)
+        Context context)
         throws IOException {
 
       List<LinkNode> nodeList = new ArrayList<>();
@@ -312,7 +316,7 @@ public class LinkDumper extends Configured implements Tool {
 
       LinkNode[] linkNodesAr = nodeList.toArray(new LinkNode[nodeList.size()]);
       LinkNodes linkNodes = new LinkNodes(linkNodesAr);
-      output.collect(key, linkNodes);
+      context.write(key, linkNodes);
     }
 
     public void close() {
@@ -339,23 +343,24 @@ public class LinkDumper extends Configured implements Tool {
     // run the inverter job
     Path tempInverted = new Path(webGraphDb, "inverted-"
         + Integer.toString(new Random().nextInt(Integer.MAX_VALUE)));
-    JobConf inverter = new NutchJob(conf);
+    Job inverter = new NutchJob(conf);
     inverter.setJobName("LinkDumper: inverter");
     FileInputFormat.addInputPath(inverter, nodeDb);
     FileInputFormat.addInputPath(inverter, outlinkDb);
-    inverter.setInputFormat(SequenceFileInputFormat.class);
-    inverter.setMapperClass(Inverter.class);
-    inverter.setReducerClass(Inverter.class);
+    inverter.setInputFormatClass(SequenceFileInputFormat.class);
+    inverter.setJarByClass(Inverter.class);
+    inverter.setMapperClass(Inverter.InvertMapper.class);
+    inverter.setReducerClass(Inverter.InvertReducer.class);
     inverter.setMapOutputKeyClass(Text.class);
     inverter.setMapOutputValueClass(ObjectWritable.class);
     inverter.setOutputKeyClass(Text.class);
     inverter.setOutputValueClass(LinkNode.class);
     FileOutputFormat.setOutputPath(inverter, tempInverted);
-    inverter.setOutputFormat(SequenceFileOutputFormat.class);
+    inverter.setOutputFormatClass(SequenceFileOutputFormat.class);
 
     try {
       LOG.info("LinkDumper: running inverter");
-      JobClient.runJob(inverter);
+      int complete = inverter.waitForCompletion(true)?0:1;
       LOG.info("LinkDumper: finished inverter");
     } catch (IOException e) {
       LOG.error(StringUtils.stringifyException(e));
@@ -363,21 +368,21 @@ public class LinkDumper extends Configured implements Tool {
     }
 
     // run the merger job
-    JobConf merger = new NutchJob(conf);
+    Job merger = new NutchJob(conf);
     merger.setJobName("LinkDumper: merger");
     FileInputFormat.addInputPath(merger, tempInverted);
-    merger.setInputFormat(SequenceFileInputFormat.class);
+    merger.setInputFormatClass(SequenceFileInputFormat.class);
     merger.setReducerClass(Merger.class);
     merger.setMapOutputKeyClass(Text.class);
     merger.setMapOutputValueClass(LinkNode.class);
     merger.setOutputKeyClass(Text.class);
     merger.setOutputValueClass(LinkNodes.class);
     FileOutputFormat.setOutputPath(merger, linkdump);
-    merger.setOutputFormat(MapFileOutputFormat.class);
+    merger.setOutputFormatClass(MapFileOutputFormat.class);
 
     try {
       LOG.info("LinkDumper: running merger");
-      JobClient.runJob(merger);
+      int complete = merger.waitForCompletion(true)?0:1;
       LOG.info("LinkDumper: finished merger");
     } catch (IOException e) {
       LOG.error(StringUtils.stringifyException(e));
