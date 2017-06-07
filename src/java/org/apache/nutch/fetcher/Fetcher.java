@@ -29,8 +29,18 @@ import org.slf4j.LoggerFactory;
 
 import org.apache.hadoop.io.*;
 import org.apache.hadoop.fs.*;
-import org.apache.hadoop.conf.*;
-import org.apache.hadoop.mapred.*;
+import org.apache.hadoop.conf.Configurable;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.Mapper.Context;
+import org.apache.hadoop.mapreduce.lib.input.SequenceFileInputFormat;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.mapreduce.RecordReader;
+import org.apache.hadoop.mapreduce.InputSplit;
+import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.util.StringUtils;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
@@ -93,7 +103,8 @@ MapRunnable<Text, CrawlDatum, Text, NutchWritable> {
   public static class InputFormat extends
   SequenceFileInputFormat<Text, CrawlDatum> {
     /** Don't split inputs, to keep things polite. */
-    public InputSplit[] getSplits(JobConf job, int nSplits) throws IOException {
+    public InputSplit[] getSplits(Job job, int nSplits) throws IOException {
+      Configuration conf = job.getConfiguration();
       FileStatus[] files = listStatus(job);
       FileSplit[] splits = new FileSplit[files.length];
       for (int i = 0; i < files.length; i++) {
@@ -106,8 +117,7 @@ MapRunnable<Text, CrawlDatum, Text, NutchWritable> {
   }
 
   @SuppressWarnings("unused")
-  private OutputCollector<Text, NutchWritable> output;
-  private Reporter reporter;
+  private Context context;
 
   private String segmentName;
   private AtomicInteger activeThreads = new AtomicInteger(0);
@@ -153,15 +163,16 @@ MapRunnable<Text, CrawlDatum, Text, NutchWritable> {
     status.append(avgBytesSec).append(" kbits/s (")
     .append((bytesLastSec / 128)).append(" last sec)");
 
-    reporter.setStatus(status.toString());
+    context.setStatus(status.toString());
   }
 
-  public void configure(JobConf job) {
-    setConf(job);
+  public void configure(Job job) {
+    Configuration conf = job.getConfiguration();
+    setConf(conf);
 
-    this.segmentName = job.get(Nutch.SEGMENT_NAME_KEY);
-    this.storingContent = isStoringContent(job);
-    this.parsing = isParsing(job);
+    this.segmentName = conf.get(Nutch.SEGMENT_NAME_KEY);
+    this.storingContent = isStoringContent(conf);
+    this.parsing = isParsing(conf);
 
     // if (job.getBoolean("fetcher.verbose", false)) {
     // LOG.setLevel(Level.FINE);
@@ -180,11 +191,10 @@ MapRunnable<Text, CrawlDatum, Text, NutchWritable> {
   }
 
   public void run(RecordReader<Text, CrawlDatum> input,
-      OutputCollector<Text, NutchWritable> output, Reporter reporter)
+      Context context)
           throws IOException {
 
-    this.output = output;
-    this.reporter = reporter;
+    this.context = context;
     this.fetchQueues = new FetchItemQueues(getConf());
 
     int threadCount = getConf().getInt("fetcher.threads.fetch", 10);
@@ -213,8 +223,8 @@ MapRunnable<Text, CrawlDatum, Text, NutchWritable> {
 
     for (int i = 0; i < threadCount; i++) { // spawn threads
       FetcherThread t = new FetcherThread(getConf(), getActiveThreads(), fetchQueues, 
-          feeder, spinWaiting, lastRequestStart, reporter, errors, segmentName,
-          parsing, output, storingContent, pages, bytes);
+          feeder, spinWaiting, lastRequestStart, context, errors, segmentName,
+          parsing, storingContent, pages, bytes);
       fetcherThreads.add(t);
       t.start();
     }
@@ -275,7 +285,7 @@ MapRunnable<Text, CrawlDatum, Text, NutchWritable> {
       pagesLastSec = pages.get() - pagesLastSec;
       bytesLastSec = (int) bytes.get() - bytesLastSec;
 
-      reporter.incrCounter("FetcherStatus", "bytes_downloaded", bytesLastSec);
+      context.getCounter("FetcherStatus", "bytes_downloaded").increment(bytesLastSec);
 
       reportStatus(pagesLastSec, bytesLastSec);
 
@@ -309,7 +319,7 @@ MapRunnable<Text, CrawlDatum, Text, NutchWritable> {
             int hitByThrougputThreshold = fetchQueues.emptyQueues();
 
             if (hitByThrougputThreshold != 0)
-              reporter.incrCounter("FetcherStatus", "hitByThrougputThreshold",
+              context.getCounter("FetcherStatus", "hitByThrougputThreshold").increment(
                   hitByThrougputThreshold);
           }
         }
@@ -353,8 +363,8 @@ MapRunnable<Text, CrawlDatum, Text, NutchWritable> {
               // activate new threads
               for (int i = 0; i < additionalThreads; i++) {
                 FetcherThread thread = new FetcherThread(getConf(), getActiveThreads(), fetchQueues, 
-                    feeder, spinWaiting, lastRequestStart, reporter, errors, segmentName, parsing,
-                    output, storingContent, pages, bytes);
+                    feeder, spinWaiting, lastRequestStart, context, errors, segmentName, parsing,
+                    storingContent, pages, bytes);
                 fetcherThreads.add(thread);
                 thread.start();
               }
@@ -383,7 +393,7 @@ MapRunnable<Text, CrawlDatum, Text, NutchWritable> {
       if (!feeder.isAlive()) {
         int hitByTimeLimit = fetchQueues.checkTimelimit();
         if (hitByTimeLimit != 0)
-          reporter.incrCounter("FetcherStatus", "hitByTimeLimit",
+          context.getCounter("FetcherStatus", "hitByTimeLimit").increment(
               hitByTimeLimit);
       }
 
@@ -463,27 +473,28 @@ MapRunnable<Text, CrawlDatum, Text, NutchWritable> {
           Integer.toString(totalOutlinksToFollow));
     }
 
-    JobConf job = new NutchJob(getConf());
+    Job job = new NutchJob(getConf());
     job.setJobName("fetch " + segment);
+    Configuration conf = job.getConfiguration();
 
-    job.setInt("fetcher.threads.fetch", threads);
-    job.set(Nutch.SEGMENT_NAME_KEY, segment.getName());
+    conf.setInt("fetcher.threads.fetch", threads);
+    conf.set(Nutch.SEGMENT_NAME_KEY, segment.getName());
 
     // for politeness, don't permit parallel execution of a single task
-    job.setSpeculativeExecution(false);
+    conf.setSpeculativeExecution(false);
 
     FileInputFormat.addInputPath(job, new Path(segment,
         CrawlDatum.GENERATE_DIR_NAME));
-    job.setInputFormat(InputFormat.class);
+    job.setInputFormatClass(InputFormat.class);
 
     job.setMapRunnerClass(Fetcher.class);
 
     FileOutputFormat.setOutputPath(job, segment);
-    job.setOutputFormat(FetcherOutputFormat.class);
+    job.setOutputFormatClass(FetcherOutputFormat.class);
     job.setOutputKeyClass(Text.class);
     job.setOutputValueClass(NutchWritable.class);
 
-    JobClient.runJob(job);
+    int complete = job.waitForCompletion(true)?0:1;
 
     long end = System.currentTimeMillis();
     LOG.info("Fetcher: finished at {}, elapsed: {}", sdf.format(end),
