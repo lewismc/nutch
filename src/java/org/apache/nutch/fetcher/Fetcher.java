@@ -32,6 +32,7 @@ import org.apache.hadoop.fs.*;
 import org.apache.hadoop.conf.Configurable;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.JobContext;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.Mapper.Context;
@@ -88,8 +89,7 @@ import org.apache.nutch.util.*;
  * 
  * @author Andrzej Bialecki
  */
-public class Fetcher extends NutchTool implements Tool,
-MapRunnable<Text, CrawlDatum, Text, NutchWritable> {
+public class Fetcher extends NutchTool implements Tool {
 
   public static final int PERM_REFRESH_TIME = 5;
 
@@ -103,13 +103,16 @@ MapRunnable<Text, CrawlDatum, Text, NutchWritable> {
   public static class InputFormat extends
   SequenceFileInputFormat<Text, CrawlDatum> {
     /** Don't split inputs, to keep things polite. */
-    public InputSplit[] getSplits(Job job, int nSplits) throws IOException {
+    public InputSplit[] getSplits(JobContext job, int nSplits) throws IOException {
       Configuration conf = job.getConfiguration();
-      FileStatus[] files = listStatus(job);
-      FileSplit[] splits = new FileSplit[files.length];
-      for (int i = 0; i < files.length; i++) {
-        FileStatus cur = files[i];
-        splits[i] = new FileSplit(cur.getPath(), 0, cur.getLen(),
+      List<FileStatus> files = listStatus(job);
+      FileSplit[] splits = new FileSplit[files.size()];
+      Iterator<FileStatus> iterator= files.listIterator();
+      int index = 0;
+      while(iterator.hasNext()) {
+        index++;
+        FileStatus cur = iterator.next();
+        splits[index] = new FileSplit(cur.getPath(), 0, cur.getLen(),
             (String[]) null);
       }
       return splits;
@@ -190,239 +193,240 @@ MapRunnable<Text, CrawlDatum, Text, NutchWritable> {
     return conf.getBoolean("fetcher.store.content", true);
   }
 
-  public void run(RecordReader<Text, CrawlDatum> input,
-      Context context)
-          throws IOException {
+  public class FetcherRun extends
+     Mapper<Text, CrawlDatum, Text, NutchWritable> { 
+    public void run(Context innerContext) throws IOException {
 
-    this.context = context;
-    this.fetchQueues = new FetchItemQueues(getConf());
+      context = context;
+      fetchQueues = new FetchItemQueues(getConf());
 
-    int threadCount = getConf().getInt("fetcher.threads.fetch", 10);
-    if (LOG.isInfoEnabled()) {
-      LOG.info("Fetcher: threads: {}", threadCount);
-    }
-
-    int timeoutDivisor = getConf().getInt("fetcher.threads.timeout.divisor", 2);
-    if (LOG.isInfoEnabled()) {
-      LOG.info("Fetcher: time-out divisor: {}", timeoutDivisor);
-    }
-
-    int queueDepthMuliplier = getConf().getInt(
-        "fetcher.queue.depth.multiplier", 50);
-
-    feeder = new QueueFeeder(input, fetchQueues, threadCount
-        * queueDepthMuliplier);
-    // feeder.setPriority((Thread.MAX_PRIORITY + Thread.NORM_PRIORITY) / 2);
-
-    // the value of the time limit is either -1 or the time where it should
-    // finish
-    long timelimit = getConf().getLong("fetcher.timelimit", -1);
-    if (timelimit != -1)
-      feeder.setTimeLimit(timelimit);
-    feeder.start();
-
-    for (int i = 0; i < threadCount; i++) { // spawn threads
-      FetcherThread t = new FetcherThread(getConf(), getActiveThreads(), fetchQueues, 
-          feeder, spinWaiting, lastRequestStart, context, errors, segmentName,
-          parsing, storingContent, pages, bytes);
-      fetcherThreads.add(t);
-      t.start();
-    }
-
-    // select a timeout that avoids a task timeout
-    long timeout = getConf().getInt("mapred.task.timeout", 10 * 60 * 1000)
-        / timeoutDivisor;
-
-    // Used for threshold check, holds pages and bytes processed in the last
-    // second
-    int pagesLastSec;
-    int bytesLastSec;
-
-    int throughputThresholdNumRetries = 0;
-
-    int throughputThresholdPages = getConf().getInt(
-        "fetcher.throughput.threshold.pages", -1);
-    if (LOG.isInfoEnabled()) {
-      LOG.info("Fetcher: throughput threshold: {}", throughputThresholdPages);
-    }
-    int throughputThresholdMaxRetries = getConf().getInt(
-        "fetcher.throughput.threshold.retries", 5);
-    if (LOG.isInfoEnabled()) {
-      LOG.info("Fetcher: throughput threshold retries: {}",
-          throughputThresholdMaxRetries);
-    }
-    long throughputThresholdTimeLimit = getConf().getLong(
-        "fetcher.throughput.threshold.check.after", -1);
-
-    int targetBandwidth = getConf().getInt("fetcher.bandwidth.target", -1) * 1000;
-    int maxNumThreads = getConf().getInt("fetcher.maxNum.threads", threadCount);
-    if (maxNumThreads < threadCount) {
-      LOG.info("fetcher.maxNum.threads can't be < than {} : using {} instead",
-          threadCount, threadCount);
-      maxNumThreads = threadCount;
-    }
-    int bandwidthTargetCheckEveryNSecs = getConf().getInt(
-        "fetcher.bandwidth.target.check.everyNSecs", 30);
-    if (bandwidthTargetCheckEveryNSecs < 1) {
-      LOG.info("fetcher.bandwidth.target.check.everyNSecs can't be < to 1 : using 1 instead");
-      bandwidthTargetCheckEveryNSecs = 1;
-    }
-
-    int maxThreadsPerQueue = getConf().getInt("fetcher.threads.per.queue", 1);
-
-    int bandwidthTargetCheckCounter = 0;
-    long bytesAtLastBWTCheck = 0l;
-
-    do { // wait for threads to exit
-      pagesLastSec = pages.get();
-      bytesLastSec = (int) bytes.get();
-
-      try {
-        Thread.sleep(1000);
-      } catch (InterruptedException e) {
+      int threadCount = getConf().getInt("fetcher.threads.fetch", 10);
+      if (LOG.isInfoEnabled()) {
+        LOG.info("Fetcher: threads: {}", threadCount);
       }
 
-      pagesLastSec = pages.get() - pagesLastSec;
-      bytesLastSec = (int) bytes.get() - bytesLastSec;
-
-      context.getCounter("FetcherStatus", "bytes_downloaded").increment(bytesLastSec);
-
-      reportStatus(pagesLastSec, bytesLastSec);
-
-      LOG.info("-activeThreads=" + activeThreads + ", spinWaiting="
-          + spinWaiting.get() + ", fetchQueues.totalSize="
-          + fetchQueues.getTotalSize() + ", fetchQueues.getQueueCount="
-          + fetchQueues.getQueueCount());
-
-      if (!feeder.isAlive() && fetchQueues.getTotalSize() < 5) {
-        fetchQueues.dump();
+      int timeoutDivisor = getConf().getInt("fetcher.threads.timeout.divisor", 2);
+      if (LOG.isInfoEnabled()) {
+        LOG.info("Fetcher: time-out divisor: {}", timeoutDivisor);
       }
 
-      // if throughput threshold is enabled
-      if (throughputThresholdTimeLimit < System.currentTimeMillis()
-          && throughputThresholdPages != -1) {
-        // Check if we're dropping below the threshold
-        if (pagesLastSec < throughputThresholdPages) {
-          throughputThresholdNumRetries++;
-          LOG.warn("{}: dropping below configured threshold of {} pages per second",
-              Integer.toString(throughputThresholdNumRetries), Integer.toString(throughputThresholdPages));
+      int queueDepthMuliplier = getConf().getInt(
+          "fetcher.queue.depth.multiplier", 50);
 
-          // Quit if we dropped below threshold too many times
-          if (throughputThresholdNumRetries == throughputThresholdMaxRetries) {
-            LOG.warn("Dropped below threshold too many times, killing!");
+      feeder = new QueueFeeder(innerContext, fetchQueues, threadCount
+          * queueDepthMuliplier);
+      // feeder.setPriority((Thread.MAX_PRIORITY + Thread.NORM_PRIORITY) / 2);
 
-            // Disable the threshold checker
-            throughputThresholdPages = -1;
+      // the value of the time limit is either -1 or the time where it should
+      // finish
+      long timelimit = getConf().getLong("fetcher.timelimit", -1);
+      if (timelimit != -1)
+        feeder.setTimeLimit(timelimit);
+      feeder.start();
 
-            // Empty the queues cleanly and get number of items that were
-            // dropped
-            int hitByThrougputThreshold = fetchQueues.emptyQueues();
+      for (int i = 0; i < threadCount; i++) { // spawn threads
+        FetcherThread t = new FetcherThread(getConf(), getActiveThreads(), fetchQueues, 
+            feeder, spinWaiting, lastRequestStart, innerContext, errors, segmentName,
+            parsing, storingContent, pages, bytes);
+        fetcherThreads.add(t);
+        t.start();
+      }
 
-            if (hitByThrougputThreshold != 0)
-              context.getCounter("FetcherStatus", "hitByThrougputThreshold").increment(
-                  hitByThrougputThreshold);
-          }
+      // select a timeout that avoids a task timeout
+      long timeout = getConf().getInt("mapred.task.timeout", 10 * 60 * 1000)
+          / timeoutDivisor;
+
+      // Used for threshold check, holds pages and bytes processed in the last
+      // second
+      int pagesLastSec;
+      int bytesLastSec;
+
+      int throughputThresholdNumRetries = 0;
+
+      int throughputThresholdPages = getConf().getInt(
+          "fetcher.throughput.threshold.pages", -1);
+      if (LOG.isInfoEnabled()) {
+        LOG.info("Fetcher: throughput threshold: {}", throughputThresholdPages);
+      }
+      int throughputThresholdMaxRetries = getConf().getInt(
+          "fetcher.throughput.threshold.retries", 5);
+      if (LOG.isInfoEnabled()) {
+        LOG.info("Fetcher: throughput threshold retries: {}",
+            throughputThresholdMaxRetries);
+      }
+      long throughputThresholdTimeLimit = getConf().getLong(
+          "fetcher.throughput.threshold.check.after", -1);
+
+      int targetBandwidth = getConf().getInt("fetcher.bandwidth.target", -1) * 1000;
+      int maxNumThreads = getConf().getInt("fetcher.maxNum.threads", threadCount);
+      if (maxNumThreads < threadCount) {
+        LOG.info("fetcher.maxNum.threads can't be < than {} : using {} instead",
+            threadCount, threadCount);
+        maxNumThreads = threadCount;
+      }
+      int bandwidthTargetCheckEveryNSecs = getConf().getInt(
+          "fetcher.bandwidth.target.check.everyNSecs", 30);
+      if (bandwidthTargetCheckEveryNSecs < 1) {
+        LOG.info("fetcher.bandwidth.target.check.everyNSecs can't be < to 1 : using 1 instead");
+        bandwidthTargetCheckEveryNSecs = 1;
+      }
+
+      int maxThreadsPerQueue = getConf().getInt("fetcher.threads.per.queue", 1);
+
+      int bandwidthTargetCheckCounter = 0;
+      long bytesAtLastBWTCheck = 0l;
+
+      do { // wait for threads to exit
+        pagesLastSec = pages.get();
+        bytesLastSec = (int) bytes.get();
+
+        try {
+          Thread.sleep(1000);
+        } catch (InterruptedException e) {
         }
-      }
 
-      // adjust the number of threads if a target bandwidth has been set
-      if (targetBandwidth > 0) {
-        if (bandwidthTargetCheckCounter < bandwidthTargetCheckEveryNSecs)
-          bandwidthTargetCheckCounter++;
-        else if (bandwidthTargetCheckCounter == bandwidthTargetCheckEveryNSecs) {
-          long bpsSinceLastCheck = ((bytes.get() - bytesAtLastBWTCheck) * 8)
-              / bandwidthTargetCheckEveryNSecs;
+        pagesLastSec = pages.get() - pagesLastSec;
+        bytesLastSec = (int) bytes.get() - bytesLastSec;
 
-          bytesAtLastBWTCheck = bytes.get();
-          bandwidthTargetCheckCounter = 0;
+        innerContext.getCounter("FetcherStatus", "bytes_downloaded").increment(bytesLastSec);
 
-          int averageBdwPerThread = 0;
-          if (activeThreads.get() > 0)
-            averageBdwPerThread = Math.round(bpsSinceLastCheck
-                / activeThreads.get());
+        reportStatus(pagesLastSec, bytesLastSec);
 
-          LOG.info("averageBdwPerThread : {} kbps", (averageBdwPerThread / 1000));
+        LOG.info("-activeThreads=" + activeThreads + ", spinWaiting="
+            + spinWaiting.get() + ", fetchQueues.totalSize="
+            + fetchQueues.getTotalSize() + ", fetchQueues.getQueueCount="
+            + fetchQueues.getQueueCount());
 
-          if (bpsSinceLastCheck < targetBandwidth && averageBdwPerThread > 0) {
-            // check whether it is worth doing e.g. more queues than threads
+        if (!feeder.isAlive() && fetchQueues.getTotalSize() < 5) {
+          fetchQueues.dump();
+        }
 
-            if ((fetchQueues.getQueueCount() * maxThreadsPerQueue) > activeThreads
-                .get()) {
+        // if throughput threshold is enabled
+        if (throughputThresholdTimeLimit < System.currentTimeMillis()
+            && throughputThresholdPages != -1) {
+          // Check if we're dropping below the threshold
+          if (pagesLastSec < throughputThresholdPages) {
+            throughputThresholdNumRetries++;
+            LOG.warn("{}: dropping below configured threshold of {} pages per second",
+                Integer.toString(throughputThresholdNumRetries), Integer.toString(throughputThresholdPages));
 
-              long remainingBdw = targetBandwidth - bpsSinceLastCheck;
-              int additionalThreads = Math.round(remainingBdw
-                  / averageBdwPerThread);
-              int availableThreads = maxNumThreads - activeThreads.get();
+            // Quit if we dropped below threshold too many times
+            if (throughputThresholdNumRetries == throughputThresholdMaxRetries) {
+              LOG.warn("Dropped below threshold too many times, killing!");
 
-              // determine the number of available threads (min between
-              // availableThreads and additionalThreads)
-              additionalThreads = (availableThreads < additionalThreads ? availableThreads
-                  : additionalThreads);
-              LOG.info("Has space for more threads ({} vs {} kbps) \t=> adding {} new threads",
-                  new Object[]{(bpsSinceLastCheck / 1000), (targetBandwidth / 1000), additionalThreads});
-              // activate new threads
-              for (int i = 0; i < additionalThreads; i++) {
-                FetcherThread thread = new FetcherThread(getConf(), getActiveThreads(), fetchQueues, 
-                    feeder, spinWaiting, lastRequestStart, context, errors, segmentName, parsing,
-                    storingContent, pages, bytes);
-                fetcherThreads.add(thread);
-                thread.start();
-              }
-            }
-          } else if (bpsSinceLastCheck > targetBandwidth
-              && averageBdwPerThread > 0) {
-            // if the bandwidth we're using is greater then the expected
-            // bandwidth, we have to stop some threads
-            long excessBdw = bpsSinceLastCheck - targetBandwidth;
-            int excessThreads = Math.round(excessBdw / averageBdwPerThread);
-            LOG.info("Exceeding target bandwidth ({} vs {} kbps). \t=> excessThreads = {}",
-                new Object[]{bpsSinceLastCheck / 1000, (targetBandwidth / 1000), excessThreads});
-            // keep at least one
-            if (excessThreads >= fetcherThreads.size())
-              excessThreads = 0;
-            // de-activates threads
-            for (int i = 0; i < excessThreads; i++) {
-              FetcherThread thread = fetcherThreads.removeLast();
-              thread.setHalted(true);
+              // Disable the threshold checker
+              throughputThresholdPages = -1;
+
+              // Empty the queues cleanly and get number of items that were
+              // dropped
+              int hitByThrougputThreshold = fetchQueues.emptyQueues();
+
+              if (hitByThrougputThreshold != 0)
+                innerContext.getCounter("FetcherStatus", "hitByThrougputThreshold").increment(
+                    hitByThrougputThreshold);
             }
           }
         }
-      }
 
-      // check timelimit
-      if (!feeder.isAlive()) {
-        int hitByTimeLimit = fetchQueues.checkTimelimit();
-        if (hitByTimeLimit != 0)
-          context.getCounter("FetcherStatus", "hitByTimeLimit").increment(
-              hitByTimeLimit);
-      }
+        // adjust the number of threads if a target bandwidth has been set
+        if (targetBandwidth > 0) {
+          if (bandwidthTargetCheckCounter < bandwidthTargetCheckEveryNSecs)
+            bandwidthTargetCheckCounter++;
+          else if (bandwidthTargetCheckCounter == bandwidthTargetCheckEveryNSecs) {
+            long bpsSinceLastCheck = ((bytes.get() - bytesAtLastBWTCheck) * 8)
+                / bandwidthTargetCheckEveryNSecs;
 
-      // some requests seem to hang, despite all intentions
-      if ((System.currentTimeMillis() - lastRequestStart.get()) > timeout) {
-        if (LOG.isWarnEnabled()) {
-          LOG.warn("Aborting with {} hung threads.", activeThreads);
-          for (int i = 0; i < fetcherThreads.size(); i++) {
-            FetcherThread thread = fetcherThreads.get(i);
-            if (thread.isAlive()) {
-              LOG.warn("Thread #{} hung while processing {}", i, thread.getReprUrl());
-              if (LOG.isDebugEnabled()) {
-                StackTraceElement[] stack = thread.getStackTrace();
-                StringBuilder sb = new StringBuilder();
-                sb.append("Stack of thread #").append(i).append(":\n");
-                for (StackTraceElement s : stack) {
-                  sb.append(s.toString()).append('\n');
+            bytesAtLastBWTCheck = bytes.get();
+            bandwidthTargetCheckCounter = 0;
+
+            int averageBdwPerThread = 0;
+            if (activeThreads.get() > 0)
+              averageBdwPerThread = Math.round(bpsSinceLastCheck
+                  / activeThreads.get());
+
+            LOG.info("averageBdwPerThread : {} kbps", (averageBdwPerThread / 1000));
+
+            if (bpsSinceLastCheck < targetBandwidth && averageBdwPerThread > 0) {
+              // check whether it is worth doing e.g. more queues than threads
+
+              if ((fetchQueues.getQueueCount() * maxThreadsPerQueue) > activeThreads
+                  .get()) {
+
+                long remainingBdw = targetBandwidth - bpsSinceLastCheck;
+                int additionalThreads = Math.round(remainingBdw
+                    / averageBdwPerThread);
+                int availableThreads = maxNumThreads - activeThreads.get();
+
+                // determine the number of available threads (min between
+                // availableThreads and additionalThreads)
+                additionalThreads = (availableThreads < additionalThreads ? availableThreads
+                    : additionalThreads);
+                LOG.info("Has space for more threads ({} vs {} kbps) \t=> adding {} new threads",
+                    new Object[]{(bpsSinceLastCheck / 1000), (targetBandwidth / 1000), additionalThreads});
+                // activate new threads
+                for (int i = 0; i < additionalThreads; i++) {
+                  FetcherThread thread = new FetcherThread(getConf(), getActiveThreads(), fetchQueues, 
+                      feeder, spinWaiting, lastRequestStart, innerContext, errors, segmentName, parsing,
+                      storingContent, pages, bytes);
+                  fetcherThreads.add(thread);
+                  thread.start();
                 }
-                LOG.debug(sb.toString());
+              }
+            } else if (bpsSinceLastCheck > targetBandwidth
+                && averageBdwPerThread > 0) {
+              // if the bandwidth we're using is greater then the expected
+              // bandwidth, we have to stop some threads
+              long excessBdw = bpsSinceLastCheck - targetBandwidth;
+              int excessThreads = Math.round(excessBdw / averageBdwPerThread);
+              LOG.info("Exceeding target bandwidth ({} vs {} kbps). \t=> excessThreads = {}",
+                  new Object[]{bpsSinceLastCheck / 1000, (targetBandwidth / 1000), excessThreads});
+              // keep at least one
+              if (excessThreads >= fetcherThreads.size())
+                excessThreads = 0;
+              // de-activates threads
+              for (int i = 0; i < excessThreads; i++) {
+                FetcherThread thread = fetcherThreads.removeLast();
+                thread.setHalted(true);
               }
             }
           }
         }
-        return;
-      }
 
-    } while (activeThreads.get() > 0);
-    LOG.info("-activeThreads={}", activeThreads);
+        // check timelimit
+        if (!feeder.isAlive()) {
+          int hitByTimeLimit = fetchQueues.checkTimelimit();
+          if (hitByTimeLimit != 0)
+            innerContext.getCounter("FetcherStatus", "hitByTimeLimit").increment(
+                hitByTimeLimit);
+        }
 
+        // some requests seem to hang, despite all intentions
+        if ((System.currentTimeMillis() - lastRequestStart.get()) > timeout) {
+          if (LOG.isWarnEnabled()) {
+            LOG.warn("Aborting with {} hung threads.", activeThreads);
+            for (int i = 0; i < fetcherThreads.size(); i++) {
+              FetcherThread thread = fetcherThreads.get(i);
+              if (thread.isAlive()) {
+                LOG.warn("Thread #{} hung while processing {}", i, thread.getReprUrl());
+                if (LOG.isDebugEnabled()) {
+                  StackTraceElement[] stack = thread.getStackTrace();
+                  StringBuilder sb = new StringBuilder();
+                  sb.append("Stack of thread #").append(i).append(":\n");
+                  for (StackTraceElement s : stack) {
+                    sb.append(s.toString()).append('\n');
+                  }
+                  LOG.debug(sb.toString());
+                }
+              }
+            }
+          }
+          return;
+        }
+
+      } while (activeThreads.get() > 0);
+      LOG.info("-activeThreads={}", activeThreads);
+
+    }
   }
 
   public void fetch(Path segment, int threads) throws IOException {
@@ -481,13 +485,13 @@ MapRunnable<Text, CrawlDatum, Text, NutchWritable> {
     conf.set(Nutch.SEGMENT_NAME_KEY, segment.getName());
 
     // for politeness, don't permit parallel execution of a single task
-    conf.setSpeculativeExecution(false);
+    conf.set("mapreduce.map.speculative","false");
 
     FileInputFormat.addInputPath(job, new Path(segment,
         CrawlDatum.GENERATE_DIR_NAME));
     job.setInputFormatClass(InputFormat.class);
 
-    job.setMapRunnerClass(Fetcher.class);
+    job.setMapperClass(Fetcher.FetcherRun.class);
 
     FileOutputFormat.setOutputPath(job, segment);
     job.setOutputFormatClass(FetcherOutputFormat.class);

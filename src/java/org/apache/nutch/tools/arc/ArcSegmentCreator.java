@@ -342,7 +342,7 @@ public class ArcSegmentCreator extends Configured implements Tool {
           ParseStatus pstatus = null;
           pstatus = output(context, segmentName, url, datum, content, status,
               CrawlDatum.STATUS_FETCH_SUCCESS);
-          reporter.progress();
+          context.progress();
         } catch (Throwable t) { // unexpected exception
           logError(url, t);
           output(context, segmentName, url, datum, null, null,

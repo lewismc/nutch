@@ -21,6 +21,7 @@ import java.lang.invoke.MethodHandles;
 
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.RecordReader;
+import org.apache.hadoop.mapreduce.Mapper.Context;
 import org.apache.nutch.crawl.CrawlDatum;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,14 +35,15 @@ public class QueueFeeder extends Thread {
   private static final Logger LOG = LoggerFactory
       .getLogger(MethodHandles.lookup().lookupClass());
   
-  private RecordReader<Text, CrawlDatum> reader;
+  //private RecordReader<Text, CrawlDatum> reader;
+  private Context context;
   private FetchItemQueues queues;
   private int size;
   private long timelimit = -1;
 
-  public QueueFeeder(RecordReader<Text, CrawlDatum> reader,
+  public QueueFeeder(Context context,
       FetchItemQueues queues, int size) {
-    this.reader = reader;
+    this.context = context;
     this.queues = queues;
     this.size = size;
     this.setDaemon(true);
@@ -63,7 +65,7 @@ public class QueueFeeder extends Thread {
         try {
           Text url = new Text();
           CrawlDatum datum = new CrawlDatum();
-          hasMore = reader.nextKeyValue();
+          hasMore = context.nextKeyValue();
           timelimitcount++;
         } catch (IOException e) {
           LOG.error("QueueFeeder error reading input, record " + cnt, e);
@@ -86,7 +88,7 @@ public class QueueFeeder extends Thread {
           try {
             Text url = new Text();
             CrawlDatum datum = new CrawlDatum();
-            hasMore = reader.nextKeyValue();
+            hasMore = context.nextKeyValue();
             if (hasMore) {
               queues.addFetchItem(url, datum);
               cnt++;

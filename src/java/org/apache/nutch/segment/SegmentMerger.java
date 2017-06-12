@@ -140,10 +140,11 @@ public class SegmentMerger extends Configured implements Tool{
       SequenceFileInputFormat<Text, MetaWrapper> {
 
     public RecordReader<Text, MetaWrapper> getRecordReader(
-        final InputSplit split, final JobConf job, Reporter reporter)
+        final InputSplit split, final Job job, Context context)
         throws IOException {
 
-      reporter.setStatus(split.toString());
+      context.setStatus(split.toString());
+      Configuration conf = job.getConfiguration();
 
       // find part name
       SegmentPart segmentPart;
@@ -156,7 +157,7 @@ public class SegmentMerger extends Configured implements Tool{
         throw new RuntimeException("Cannot identify segment:", e);
       }
 
-      SequenceFile.Reader reader = new SequenceFile.Reader(job, SequenceFile.Reader.file(fSplit.getPath()));
+      SequenceFile.Reader reader = new SequenceFile.Reader(conf, SequenceFile.Reader.file(fSplit.getPath()));
 
       final Writable w;
       try {
@@ -170,17 +171,16 @@ public class SegmentMerger extends Configured implements Tool{
           // ignore
         }
       }
-      final SequenceFileRecordReader<Text, Writable> splitReader = new SequenceFileRecordReader<>(
-          job, (FileSplit) split);
+      final SequenceFileRecordReader<Text, Writable> splitReader = new SequenceFileRecordReader<>();
 
       try {
-        return new SequenceFileRecordReader<Text, MetaWrapper>(job, fSplit) {
+        return new SequenceFileRecordReader<Text, MetaWrapper>() {
 
           public synchronized boolean next(Text key, MetaWrapper wrapper)
               throws IOException {
             LOG.debug("Running OIF.next()");
 
-            boolean res = splitReader.next(key, w);
+            boolean res = splitReader.nextKeyValue();
             wrapper.set(w);
             wrapper.setMeta(SEGMENT_PART_KEY, spString);
             return res;

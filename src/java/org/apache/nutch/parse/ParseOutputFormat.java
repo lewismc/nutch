@@ -33,6 +33,9 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.SequenceFileOutputFormat;
 import org.apache.hadoop.mapreduce.RecordWriter;
 import org.apache.hadoop.mapreduce.TaskAttemptContext;
+import org.apache.hadoop.mapreduce.OutputCommitter;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputCommitter;
+import org.apache.hadoop.mapreduce.JobContext;
 import org.apache.nutch.crawl.CrawlDatum;
 import org.apache.nutch.fetcher.Fetcher;
 import org.apache.nutch.scoring.ScoringFilterException;
@@ -84,10 +87,16 @@ public class ParseOutputFormat extends OutputFormat<Text, Parse> {
     }
   }
 
-  public void checkOutputSpecs(FileSystem fs, Job job) throws IOException {
-    Configuration conf = job.getConfiguration();
-    Path out = FileOutputFormat.getOutputPath(job);
-    if ((out == null) && (job.getNumReduceTasks() != 0)) {
+  public OutputCommitter getOutputCommitter(TaskAttemptContext context){
+    Path path = FileOutputFormat.getOutputPath(context);
+    return new FileOutputCommitter(path, context); 
+  }
+
+  public void checkOutputSpecs(JobContext context) throws IOException {
+    Configuration conf = context.getConfiguration();
+    Path out = FileOutputFormat.getOutputPath(context);
+    FileSystem fs = out.getFileSystem(context.getConfiguration());
+    if ((out == null) && (context.getNumReduceTasks() != 0)) {
       throw new Exception("Output directory not set in JobConf.");
     }
     if (fs == null) {

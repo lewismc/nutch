@@ -369,7 +369,7 @@ public class Generator extends NutchTool implements Tool {
 
   // Allows the reducers to generate one subfile per
   public static class GeneratorOutputFormat extends
-      MultipleSequenceFileOutputFormat<FloatWritable, SelectorEntry> {
+      SequenceFileOutputFormat<FloatWritable, SelectorEntry> {
     // generate a filename based on the segnum stored for this entry
     protected String generateFileNameForKeyValue(FloatWritable key,
         SelectorEntry value, String name) {
