@@ -25,6 +25,7 @@ import org.apache.hadoop.io.MapFile.Writer.Option;
 import org.apache.hadoop.io.SequenceFile.CompressionType;
 import org.apache.hadoop.io.SequenceFile.Metadata;
 import org.apache.hadoop.io.compress.DefaultCodec;
+import org.apache.hadoop.util.Progressable;
 import org.apache.hadoop.fs.*;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.mapreduce.Job;
@@ -149,7 +150,7 @@ public class ParseOutputFormat extends OutputFormat<Text, Parse> {
     // textOut Options
     Option tKeyClassOpt = (Option) MapFile.Writer.keyClass(Text.class);
     org.apache.hadoop.io.SequenceFile.Writer.Option tValClassOpt = SequenceFile.Writer.valueClass(ParseText.class);
-    org.apache.hadoop.io.SequenceFile.Writer.Option tProgressOpt = SequenceFile.Writer.progressable(progress);
+    org.apache.hadoop.io.SequenceFile.Writer.Option tProgressOpt = SequenceFile.Writer.progressable((Progressable)context);
     org.apache.hadoop.io.SequenceFile.Writer.Option tCompOpt = SequenceFile.Writer.compression(CompressionType.RECORD);
     
     final MapFile.Writer textOut = new MapFile.Writer(conf, text,
@@ -158,7 +159,7 @@ public class ParseOutputFormat extends OutputFormat<Text, Parse> {
     // dataOut Options
     Option dKeyClassOpt = (Option) MapFile.Writer.keyClass(Text.class);
     org.apache.hadoop.io.SequenceFile.Writer.Option dValClassOpt = SequenceFile.Writer.valueClass(ParseData.class);
-    org.apache.hadoop.io.SequenceFile.Writer.Option dProgressOpt = SequenceFile.Writer.progressable(progress);
+    org.apache.hadoop.io.SequenceFile.Writer.Option dProgressOpt = SequenceFile.Writer.progressable((Progressable)context);
     org.apache.hadoop.io.SequenceFile.Writer.Option dCompOpt = SequenceFile.Writer.compression(compType);
 
     final MapFile.Writer dataOut = new MapFile.Writer(conf, data,
@@ -171,7 +172,7 @@ public class ParseOutputFormat extends OutputFormat<Text, Parse> {
         SequenceFile.Writer.replication(fs.getDefaultReplication(crawl)),
         SequenceFile.Writer.blockSize(1073741824),
         SequenceFile.Writer.compression(compType, new DefaultCodec()),
-        SequenceFile.Writer.progressable(progress),
+        SequenceFile.Writer.progressable((Progressable)context),
         SequenceFile.Writer.metadata(new Metadata())); 
 
     return new RecordWriter<Text, Parse>() {

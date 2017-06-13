@@ -39,6 +39,7 @@ import org.apache.hadoop.io.MapFile.Writer.Option;
 import org.apache.hadoop.io.SequenceFile.CompressionType;
 import org.apache.hadoop.io.SequenceFile.Metadata;
 import org.apache.hadoop.io.compress.DefaultCodec;
+import org.apache.hadoop.util.Progressable;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapred.FileSplit;
@@ -291,14 +292,14 @@ public class SegmentMerger extends Configured implements Tool{
           //res = SequenceFile.createWriter(job, rFileOpt, rKeyClassOpt,
            //   rValClassOpt, rCompOpt, rProgressOpt);
           
-          res = SequenceFile.createWriter(context, SequenceFile.Writer.file(wname),
+          res = SequenceFile.createWriter(conf, SequenceFile.Writer.file(wname),
               SequenceFile.Writer.keyClass(Text.class),
               SequenceFile.Writer.valueClass(CrawlDatum.class),
               SequenceFile.Writer.bufferSize(fs.getConf().getInt("io.file.buffer.size",4096)),
               SequenceFile.Writer.replication(fs.getDefaultReplication(wname)),
               SequenceFile.Writer.blockSize(1073741824),
               SequenceFile.Writer.compression(SequenceFileOutputFormat.getOutputCompressionType(context), new DefaultCodec()),
-              SequenceFile.Writer.progressable(progress),
+              SequenceFile.Writer.progressable((Progressable)context),
               SequenceFile.Writer.metadata(new Metadata())); 
           
           sliceWriters.put(slice + dirName, res);
@@ -331,7 +332,7 @@ public class SegmentMerger extends Configured implements Tool{
           
           Option rKeyClassOpt = (Option) MapFile.Writer.keyClass(Text.class);
           org.apache.hadoop.io.SequenceFile.Writer.Option rValClassOpt = SequenceFile.Writer.valueClass(clazz);
-          org.apache.hadoop.io.SequenceFile.Writer.Option rProgressOpt = SequenceFile.Writer.progressable(progress);
+          org.apache.hadoop.io.SequenceFile.Writer.Option rProgressOpt = SequenceFile.Writer.progressable((Progressable)context);
           org.apache.hadoop.io.SequenceFile.Writer.Option rCompOpt = SequenceFile.Writer.compression(compType);
           
           res = new MapFile.Writer(conf, wname, rKeyClassOpt,
