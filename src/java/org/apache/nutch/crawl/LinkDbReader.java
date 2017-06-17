@@ -139,7 +139,7 @@ public class LinkDbReader extends Configured implements Tool, Closeable {
     }
     Path outFolder = new Path(output);
 
-    Job job = new NutchJob(getConf());
+    Job job = NutchJob.getJobInstance(getConf());
     job.setJobName("read " + linkdb);
     
     Configuration conf = job.getConfiguration();   

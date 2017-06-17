@@ -256,7 +256,7 @@ public class WARCExporter extends Configured implements Tool {
     long start = System.currentTimeMillis();
     LOG.info("WARCExporter: starting at {}", sdf.format(start));
 
-    final Job job = new NutchJob(getConf());
+    final Job job = NutchJob.getJobInstance(getConf());
     job.setJobName("warc-exporter " + output);
     Configuration conf = job.getConfiguration();
 

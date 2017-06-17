@@ -82,7 +82,7 @@ public class UpdateHostDb extends Configured implements Tool {
     long start = System.currentTimeMillis();
     LOG.info("UpdateHostDb: starting at " + sdf.format(start));
 
-    Job job = new NutchJob(getConf());
+    Job job = NutchJob.getJobInstance(getConf());
     Configuration conf = job.getConfiguration();
     boolean preserveBackup = conf.getBoolean("db.preserve.backup", true);
     job.setJarByClass(UpdateHostDb.class);

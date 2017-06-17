@@ -25,8 +25,9 @@ import org.apache.hadoop.mapreduce.Job;
 /** A {@link Job} for Nutch jobs. */
 public class NutchJob extends Job {
 
-  public NutchJob(Configuration conf) throws IOException {
-    super(conf, "NutchJob");
-  }
+  public static NutchJob getJobInstance(Configuration conf){
+    NutchJob job = (NutchJob)Job.getInstance(conf);
+    return job;
+  } 
 
 }

@@ -621,7 +621,7 @@ public class SegmentMerger extends Configured implements Tool{
       LOG.info("Merging " + segs.length + " segments to " + out + "/"
           + segmentName);
     }
-    Job job = new NutchJob(getConf());
+    Job job = NutchJob.getJobInstance(getConf());
     Configuration conf = job.getConfiguration();
     job.setJobName("mergesegs " + out + "/" + segmentName);
     conf.setBoolean("segment.merger.filter", filter);

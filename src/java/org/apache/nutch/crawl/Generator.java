@@ -511,7 +511,7 @@ public class Generator extends NutchTool implements Tool {
   public Path[] generate(Path dbDir, Path segments, int numLists, long topN,
       long curTime) throws IOException {
 
-    Job job = new NutchJob(getConf());
+    Job job = NutchJob.getJobInstance(getConf());
     Configuration conf = job.getConfiguration();
     boolean filter = conf.getBoolean(GENERATOR_FILTER, true);
     boolean normalise = conf.getBoolean(GENERATOR_NORMALISE, true);
@@ -575,7 +575,7 @@ public class Generator extends NutchTool implements Tool {
     }
     
     // map to inverted subset due for fetch, sort by score
-    Job job = new NutchJob(getConf());
+    Job job = NutchJob.getJobInstance(getConf());
     job.setJobName("generate: select from " + dbDir);
     Configuration conf = job.getConfiguration();
 
@@ -653,7 +653,7 @@ public class Generator extends NutchTool implements Tool {
       Path tempDir2 = new Path(dbDir,
           "generate-temp-" + java.util.UUID.randomUUID().toString());
 
-      job = new NutchJob(getConf());
+      job = NutchJob.getJobInstance(getConf());
       job.setJobName("generate: updatedb " + dbDir);
       job.getConfiguration().setLong(Nutch.GENERATE_TIME_KEY, generateTime);
       for (Path segmpaths : generatedSegments) {
@@ -704,7 +704,7 @@ public class Generator extends NutchTool implements Tool {
 
     LOG.info("Generator: segment: " + segment);
 
-    NutchJob job = new NutchJob(getConf());
+    NutchJob job = NutchJob.getJobInstance(getConf());
     job.setJobName("generate: partition " + segment);
     Configuration conf = job.getConfiguration();
     conf.setInt("partition.url.seed", new Random().nextInt());

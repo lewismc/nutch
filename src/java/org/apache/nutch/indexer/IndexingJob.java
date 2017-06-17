@@ -105,7 +105,7 @@ public class IndexingJob extends NutchTool implements Tool {
     long start = System.currentTimeMillis();
     LOG.info("Indexer: starting at {}", sdf.format(start));
 
-    final Job job = new NutchJob(getConf());
+    final Job job = NutchJob.getJobInstance(getConf());
     job.setJobName("Indexer");
     Configuration conf = job.getConfiguration();
 

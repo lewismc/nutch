@@ -372,7 +372,7 @@ public class CrawlDbReader extends Configured implements Closeable, Tool {
   private TreeMap<String, LongWritable> processStatJobHelper(String crawlDb, Configuration config, boolean sort) throws IOException{
 	  Path tmpFolder = new Path(crawlDb, "stat_tmp" + System.currentTimeMillis());
 
-	  Job job = new NutchJob(config);
+	  Job job = NutchJob.getJobInstance(config);
           config = job.getConfiguration();
 	  job.setJobName("stats " + crawlDb);
 	  config.setBoolean("db.reader.stats.sort", sort);
@@ -521,7 +521,7 @@ public class CrawlDbReader extends Configured implements Closeable, Tool {
 
     Path outFolder = new Path(output);
 
-    Job job = new NutchJob(config);
+    Job job = NutchJob.getJobInstance(config);
     job.setJobName("dump " + crawlDb);
 
     FileInputFormat.addInputPath(job, new Path(crawlDb, CrawlDb.CURRENT_NAME));
@@ -630,7 +630,7 @@ public class CrawlDbReader extends Configured implements Closeable, Tool {
         + "/readdb-topN-temp-"
         + Integer.toString(new Random().nextInt(Integer.MAX_VALUE)));
 
-    Job job = new NutchJob(config);
+    Job job = NutchJob.getJobInstance(config);
     job.setJobName("topN prepare " + crawlDb);
     FileInputFormat.addInputPath(job, new Path(crawlDb, CrawlDb.CURRENT_NAME));
     job.setInputFormatClass(SequenceFileInputFormat.class);
@@ -648,7 +648,7 @@ public class CrawlDbReader extends Configured implements Closeable, Tool {
     if (LOG.isInfoEnabled()) {
       LOG.info("CrawlDb topN: collecting topN scores.");
     }
-    job = new NutchJob(config);
+    job = NutchJob.getJobInstance(config);
     job.setJobName("topN collect " + crawlDb);
     job.getConfiguration().setLong("db.reader.topn", topN);
 
@@ -707,7 +707,7 @@ public class CrawlDbReader extends Configured implements Closeable, Tool {
     }
     String param = null;
     String crawlDb = args[0];
-    Job job = new NutchJob(getConf());
+    Job job = NutchJob.getJobInstance(getConf());
     Configuration config = job.getConfiguration();
     for (int i = 1; i < args.length; i++) {
       if (args[i].equals("-stats")) {
