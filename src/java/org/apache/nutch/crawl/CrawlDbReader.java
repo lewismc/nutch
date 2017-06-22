@@ -55,6 +55,7 @@ import org.apache.hadoop.mapreduce.lib.output.MapFileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.apache.hadoop.mapreduce.lib.input.SequenceFileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.MapFileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.partition.HashPartitioner;
 import org.apache.hadoop.mapreduce.Mapper.Context;
@@ -396,15 +397,14 @@ public class CrawlDbReader extends Configured implements Closeable, Tool {
 
 	  // reading the result
 	  FileSystem fileSystem = tmpFolder.getFileSystem(config);
-	  SequenceFile.Reader[] readers = SequenceFileOutputFormat.getReaders(config,
-			  tmpFolder);
+	  MapFile.Reader[] readers = MapFileOutputFormat.getReaders(tmpFolder, config);
 
 	  Text key = new Text();
 	  LongWritable value = new LongWritable();
 
 	  TreeMap<String, LongWritable> stats = new TreeMap<>();
 	  for (int i = 0; i < readers.length; i++) {
-		  SequenceFile.Reader reader = readers[i];
+		  MapFile.Reader reader = readers[i];
 		  while (reader.next(key, value)) {
 			  String k = key.toString();
 			  LongWritable val = stats.get(k);

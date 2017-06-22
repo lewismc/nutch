@@ -431,14 +431,14 @@ public class SegmentReader extends Configured implements Tool {
   }
 
   private List<Writable> getSeqRecords(Path dir, Text key) throws Exception {
-    SequenceFile.Reader[] readers = SequenceFileOutputFormat.getReaders(
-        getConf(), dir);
+    MapFile.Reader[] readers = MapFileOutputFormat.getReaders(
+        dir, getConf());
     ArrayList<Writable> res = new ArrayList<>();
     Class<?> keyClass = readers[0].getKeyClass();
     Class<?> valueClass = readers[0].getValueClass();
     if (!keyClass.getName().equals("org.apache.hadoop.io.Text"))
       throw new IOException("Incompatible key (" + keyClass.getName() + ")");
-    Writable aKey = (Writable) keyClass.newInstance();
+    WritableComparable aKey = (WritableComparable) keyClass.newInstance();
     Writable value = (Writable) valueClass.newInstance();
     for (int i = 0; i < readers.length; i++) {
       while (readers[i].next(aKey, value)) {
@@ -505,13 +505,14 @@ public class SegmentReader extends Configured implements Tool {
       throws Exception {
     long cnt = 0L;
     Text key = new Text();
+    Text val = new Text();
     FileSystem fs = segment.getFileSystem(getConf());
     
     if (ge) {
-      SequenceFile.Reader[] readers = SequenceFileOutputFormat.getReaders(
-          getConf(), new Path(segment, CrawlDatum.GENERATE_DIR_NAME));
+      MapFile.Reader[] readers = MapFileOutputFormat.getReaders(
+          new Path(segment, CrawlDatum.GENERATE_DIR_NAME), getConf());
       for (int i = 0; i < readers.length; i++) {
-        while (readers[i].next(key))
+        while (readers[i].next(key, val))
           cnt++;
         readers[i].close();
       }

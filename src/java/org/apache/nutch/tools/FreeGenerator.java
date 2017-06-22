@@ -194,7 +194,7 @@ public class FreeGenerator extends Configured implements Tool {
     job.setOutputFormatClass(SequenceFileOutputFormat.class);
     job.setOutputKeyClass(Text.class);
     job.setOutputValueClass(CrawlDatum.class);
-    job.setOutputKeyComparatorClass(Generator.HashComparator.class);
+    job.setSortComparatorClass(Generator.HashComparator.class);
     FileOutputFormat.setOutputPath(job, new Path(args[1], new Path(segName,
         CrawlDatum.GENERATE_DIR_NAME)));
     try {
