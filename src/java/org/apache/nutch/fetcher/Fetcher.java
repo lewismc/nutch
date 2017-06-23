@@ -429,7 +429,8 @@ public class Fetcher extends NutchTool implements Tool {
     }
   }
 
-  public void fetch(Path segment, int threads) throws IOException {
+  public void fetch(Path segment, int threads) throws IOException, 
+    InterruptedException, ClassNotFoundException {
 
     checkConfiguration();
 
@@ -498,7 +499,12 @@ public class Fetcher extends NutchTool implements Tool {
     job.setOutputKeyClass(Text.class);
     job.setOutputValueClass(NutchWritable.class);
 
-    int complete = job.waitForCompletion(true)?0:1;
+    try {
+      int complete = job.waitForCompletion(true)?0:1;
+    } catch (InterruptedException | ClassNotFoundException e) {
+      LOG.error(StringUtils.stringifyException(e));
+      throw e;
+    }
 
     long end = System.currentTimeMillis();
     LOG.info("Fetcher: finished at {}, elapsed: {}", sdf.format(end),

@@ -69,7 +69,8 @@ public class ContentAsTextInputFormat extends
 
     }
 
-    public synchronized boolean next(Text key, Text value) throws IOException {
+    public synchronized boolean next(Text key, Text value) 
+        throws IOException, InterruptedException {
 
       // convert the content object to text
       Text tKey = key;

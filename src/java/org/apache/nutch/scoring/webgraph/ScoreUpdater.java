@@ -81,7 +81,7 @@ public class ScoreUpdater extends Configured implements Tool{
       Mapper<Text, Writable, Text, ObjectWritable> {
     public void map(Text key, Writable value,
         Context context)
-        throws IOException {
+        throws IOException, InterruptedException {
 
       ObjectWritable objWrite = new ObjectWritable();
       objWrite.set(value);
@@ -97,7 +97,7 @@ public class ScoreUpdater extends Configured implements Tool{
       Reducer<Text, ObjectWritable, Text, CrawlDatum> {
     public void reduce(Text key, Iterator<ObjectWritable> values,
         Context context)
-        throws IOException {
+        throws IOException, InterruptedException {
 
       String url = key.toString();
       Node node = null;
@@ -154,7 +154,8 @@ public class ScoreUpdater extends Configured implements Tool{
    * @throws IOException
    *           If an error occurs while updating the scores.
    */
-  public void update(Path crawlDb, Path webGraphDb) throws IOException {
+  public void update(Path crawlDb, Path webGraphDb) throws IOException,
+      ClassNotFoundException, InterruptedException {
 
     SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
     long start = System.currentTimeMillis();
@@ -187,7 +188,7 @@ public class ScoreUpdater extends Configured implements Tool{
 
     try {
       int complete = updater.waitForCompletion(true)?0:1;
-    } catch (IOException e) {
+    } catch (IOException | ClassNotFoundException | InterruptedException e) {
       LOG.error(StringUtils.stringifyException(e));
 
       // remove the temp crawldb on error

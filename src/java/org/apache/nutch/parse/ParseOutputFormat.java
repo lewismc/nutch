@@ -88,17 +88,18 @@ public class ParseOutputFormat extends OutputFormat<Text, Parse> {
     }
   }
 
-  public OutputCommitter getOutputCommitter(TaskAttemptContext context){
+  public OutputCommitter getOutputCommitter(TaskAttemptContext context) 
+      throws IOException {
     Path path = FileOutputFormat.getOutputPath(context);
     return new FileOutputCommitter(path, context); 
   }
 
-  public void checkOutputSpecs(JobContext context) throws IOException {
+  public void checkOutputSpecs(JobContext context) throws IOException{
     Configuration conf = context.getConfiguration();
     Path out = FileOutputFormat.getOutputPath(context);
     FileSystem fs = out.getFileSystem(context.getConfiguration());
     if ((out == null) && (context.getNumReduceTasks() != 0)) {
-      throw new Exception("Output directory not set in JobConf.");
+      throw new IOException("Output directory not set in JobConf.");
     }
     if (fs == null) {
       fs = out.getFileSystem(conf);

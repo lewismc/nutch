@@ -90,7 +90,7 @@ public class DeduplicationJob extends NutchTool implements Tool {
 
     public void map(Text key, CrawlDatum value,
         Context context)
-        throws IOException {
+        throws IOException, InterruptedException {
 
       if (value.getStatus() == CrawlDatum.STATUS_DB_FETCHED
           || value.getStatus() == CrawlDatum.STATUS_DB_NOTMODIFIED) {
@@ -140,7 +140,7 @@ public class DeduplicationJob extends NutchTool implements Tool {
 
     private void writeOutAsDuplicate(CrawlDatum datum,
         Context context)
-        throws IOException {
+        throws IOException, InterruptedException {
       datum.setStatus(CrawlDatum.STATUS_DB_DUPLICATE);
       Text key = (Text) datum.getMetaData().remove(urlKey);
       context.getCounter("DeduplicationJobStatus",
@@ -150,7 +150,7 @@ public class DeduplicationJob extends NutchTool implements Tool {
 
     public void reduce(BytesWritable key, Iterator<CrawlDatum> values,
         Context context)
-        throws IOException {
+        throws IOException, InterruptedException {
       CrawlDatum existingDoc = null;
 
       outerloop:
@@ -240,7 +240,7 @@ public class DeduplicationJob extends NutchTool implements Tool {
 
     public void reduce(Text key, Iterator<CrawlDatum> values,
         Context context)
-        throws IOException {
+        throws IOException, InterruptedException {
       boolean duplicateSet = false;
 
       while (values.hasNext()) {

@@ -31,7 +31,6 @@ import io.searchbox.core.Index;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.mapred.JobConf;
 import org.apache.http.HttpResponse;
 import org.apache.http.concurrent.BasicFuture;
 import org.apache.http.conn.ssl.DefaultHostnameVerifier;
@@ -96,14 +95,14 @@ public class ElasticRestIndexWriter implements IndexWriter {
   private BasicFuture<JestResult> basicFuture = null;
 
   @Override
-  public void open(JobConf job, String name) throws IOException {
+  public void open(Configuration conf, String name) throws IOException {
 
-    host = job.get(ElasticRestConstants.HOST);
-    port = job.getInt(ElasticRestConstants.PORT, 9200);
-    user = job.get(ElasticRestConstants.USER);
-    password = job.get(ElasticRestConstants.PASSWORD);
-    https = job.getBoolean(ElasticRestConstants.HTTPS, false);
-    trustAllHostnames = job.getBoolean(ElasticRestConstants.HOSTNAME_TRUST, false);
+    host = conf.get(ElasticRestConstants.HOST);
+    port = conf.getInt(ElasticRestConstants.PORT, 9200);
+    user = conf.get(ElasticRestConstants.USER);
+    password = conf.get(ElasticRestConstants.PASSWORD);
+    https = conf.getBoolean(ElasticRestConstants.HTTPS, false);
+    trustAllHostnames = conf.getBoolean(ElasticRestConstants.HOSTNAME_TRUST, false);
 
     // trust ALL certificates
     SSLContext sslContext = null;
@@ -153,11 +152,11 @@ public class ElasticRestIndexWriter implements IndexWriter {
 
     client = jestClientFactory.getObject();
 
-    defaultIndex = job.get(ElasticRestConstants.INDEX, "nutch");
-    defaultType = job.get(ElasticRestConstants.TYPE, "doc");
+    defaultIndex = conf.get(ElasticRestConstants.INDEX, "nutch");
+    defaultType = conf.get(ElasticRestConstants.TYPE, "doc");
 
-    maxBulkDocs = job.getInt(ElasticRestConstants.MAX_BULK_DOCS, DEFAULT_MAX_BULK_DOCS);
-    maxBulkLength = job.getInt(ElasticRestConstants.MAX_BULK_LENGTH, DEFAULT_MAX_BULK_LENGTH);
+    maxBulkDocs = conf.getInt(ElasticRestConstants.MAX_BULK_DOCS, DEFAULT_MAX_BULK_DOCS);
+    maxBulkLength = conf.getInt(ElasticRestConstants.MAX_BULK_LENGTH, DEFAULT_MAX_BULK_LENGTH);
 
     bulkBuilder = new Bulk.Builder().defaultIndex(defaultIndex).defaultType(defaultType);
 

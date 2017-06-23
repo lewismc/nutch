@@ -46,6 +46,7 @@ import org.apache.hadoop.io.SequenceFile;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.io.WritableComparable;
+import org.apache.hadoop.util.StringUtils;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.Job;
@@ -84,7 +85,7 @@ public class SegmentReader extends Configured implements Tool {
     private static Text newKey = new Text();
 
     public void map(WritableComparable<?> key, Writable value,
-        Context context) throws IOException {
+        Context context) throws IOException, InterruptedException {
       // convert on the fly from old formats with UTF8 keys.
       // UTF8 deprecated and replaced by Text.
       if (key instanceof Text) {
@@ -100,7 +101,7 @@ public class SegmentReader extends Configured implements Tool {
   public static class TextOutputFormat extends
       FileOutputFormat<WritableComparable<?>, Writable> {
     public RecordWriter<WritableComparable<?>, Writable> getRecordWriter(
-        TaskAttemptContext context) throws IOException {
+        TaskAttemptContext context) throws IOException, InterruptedException {
       Configuration conf = context.getConfiguration();
       String name = context.getTaskAttemptID().toString();
       Path dir = FileOutputFormat.getOutputPath(context);
@@ -171,7 +172,7 @@ public class SegmentReader extends Configured implements Tool {
   public static class InputCompatReducer extends
       Reducer<Text, NutchWritable, Text, Text> {
     public void reduce(Text key, Iterator<NutchWritable> values,
-        Context context) throws IOException {
+        Context context) throws IOException, InterruptedException {
       StringBuffer dump = new StringBuffer();
 
       dump.append("\nRecno:: ").append(recNo++).append("\n");
@@ -194,13 +195,14 @@ public class SegmentReader extends Configured implements Tool {
     }
   }
 
-  public void dump(Path segment, Path output) throws IOException {
+  public void dump(Path segment, Path output) throws IOException,
+      InterruptedException, ClassNotFoundException {
 
     if (LOG.isInfoEnabled()) {
       LOG.info("SegmentReader: dump segment: " + segment);
     }
 
-    Job job = job.getInstance();
+    Job job = Job.getInstance();
     job.setJobName("read " + segment);
     Configuration conf = job.getConfiguration();
 
@@ -234,7 +236,12 @@ public class SegmentReader extends Configured implements Tool {
     job.setOutputKeyClass(Text.class);
     job.setOutputValueClass(NutchWritable.class);
 
-    int complete = job.waitForCompletion(true)?0:1;
+    try {
+      int complete = job.waitForCompletion(true)?0:1;
+    } catch (IOException | InterruptedException | ClassNotFoundException e ){
+      LOG.error(StringUtils.stringifyException(e));
+      throw e; 
+    }
 
     // concatenate the output
     Path dumpFile = new Path(output, conf.get("segment.dump.dir", "dump"));

@@ -168,7 +168,7 @@ public class IndexerMapReduce extends Configured {
   public static class IndexerMapper extends 
      Mapper<Text, Writable, Text, NutchWritable> {
     public void map(Text key, Writable value,
-        Context context) throws IOException {
+        Context context) throws IOException, InterruptedException {
 
       String urlString = filterUrl(normalizeUrl(key.toString()));
       if (urlString == null) {
@@ -184,7 +184,7 @@ public class IndexerMapReduce extends Configured {
   public static class IndexerReducer extends
      Reducer<Text, NutchWritable, Text, NutchIndexAction> {
     public void reduce(Text key, Iterator<NutchWritable> values,
-        Context context) throws IOException {
+        Context context) throws IOException, InterruptedException {
       Inlinks inlinks = null;
       CrawlDatum dbDatum = null;
       CrawlDatum fetchDatum = null;
@@ -374,7 +374,7 @@ public class IndexerMapReduce extends Configured {
   }
 
   public static void initMRJob(Path crawlDb, Path linkDb,
-      Collection<Path> segments, Job job, boolean addBinaryContent) {
+      Collection<Path> segments, Job job, boolean addBinaryContent) throws IOException{
 
     LOG.info("IndexerMapReduce: crawldb: {}", crawlDb);
 

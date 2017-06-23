@@ -67,30 +67,33 @@ public class IndexingJob extends NutchTool implements Tool {
   }
 
   public void index(Path crawlDb, Path linkDb, List<Path> segments,
-      boolean noCommit) throws IOException {
+      boolean noCommit) throws IOException, InterruptedException, ClassNotFoundException {
     index(crawlDb, linkDb, segments, noCommit, false, null);
   }
 
   public void index(Path crawlDb, Path linkDb, List<Path> segments,
-      boolean noCommit, boolean deleteGone) throws IOException {
+      boolean noCommit, boolean deleteGone) 
+      throws IOException, InterruptedException, ClassNotFoundException {
     index(crawlDb, linkDb, segments, noCommit, deleteGone, null);
   }
 
   public void index(Path crawlDb, Path linkDb, List<Path> segments,
-      boolean noCommit, boolean deleteGone, String params) throws IOException {
+      boolean noCommit, boolean deleteGone, String params) 
+      throws IOException, InterruptedException, ClassNotFoundException {
     index(crawlDb, linkDb, segments, noCommit, deleteGone, params, false, false);
   }
 
   public void index(Path crawlDb, Path linkDb, List<Path> segments,
       boolean noCommit, boolean deleteGone, String params, boolean filter,
-      boolean normalize) throws IOException {
+      boolean normalize) throws IOException, InterruptedException, ClassNotFoundException {
     index(crawlDb, linkDb, segments, noCommit, deleteGone, params, false,
         false, false);
   }
 
   public void index(Path crawlDb, Path linkDb, List<Path> segments,
       boolean noCommit, boolean deleteGone, String params,
-      boolean filter, boolean normalize, boolean addBinaryContent) throws IOException {
+      boolean filter, boolean normalize, boolean addBinaryContent) 
+      throws IOException, InterruptedException, ClassNotFoundException {
     index(crawlDb, linkDb, segments, noCommit, deleteGone, params, false,
         false, false, false);
   }
@@ -98,7 +101,7 @@ public class IndexingJob extends NutchTool implements Tool {
   public void index(Path crawlDb, Path linkDb, List<Path> segments,
       boolean noCommit, boolean deleteGone, String params,
       boolean filter, boolean normalize, boolean addBinaryContent,
-      boolean base64) throws IOException {
+      boolean base64) throws IOException, InterruptedException, ClassNotFoundException {
 
 
     SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
@@ -143,7 +146,12 @@ public class IndexingJob extends NutchTool implements Tool {
 
     FileOutputFormat.setOutputPath(job, tmp);
     try {
-      int complete = job.waitForCompletion(true)?0:1;
+      try{
+        int complete = job.waitForCompletion(true)?0:1;
+      } catch (InterruptedException | ClassNotFoundException e) {
+        LOG.error(StringUtils.stringifyException(e));
+        throw e;
+      }
       // do the commits once and for all the reducers in one go
       if (!noCommit) {
         writers.open(conf, "commit");

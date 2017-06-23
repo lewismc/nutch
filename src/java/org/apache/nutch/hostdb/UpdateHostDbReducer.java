@@ -117,7 +117,7 @@ public class UpdateHostDbReducer
     *
     */
   public void reduce(Text key, Iterator<NutchWritable> values,
-    Context context) throws IOException {
+    Context context) throws IOException, InterruptedException {
 
     Map<String,Map<String,Integer>> stringCounts = new HashMap<>();
     Map<String,Float> maximums = new HashMap<>();

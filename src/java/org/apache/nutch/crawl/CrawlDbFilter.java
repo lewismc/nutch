@@ -79,7 +79,7 @@ public class CrawlDbFilter extends
   private Text newKey = new Text();
 
   public void map(Text key, CrawlDatum value,
-      Context context) throws IOException {
+      Context context) throws IOException, InterruptedException {
 
     String url = key.toString();
 

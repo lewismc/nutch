@@ -115,7 +115,7 @@ public class NodeDumper extends Configured implements Tool {
     public static class SorterMapper extends 
         Mapper<Text, Node, FloatWritable, Text> {
       public void map(Text key, Node node,
-          Context context) throws IOException {
+          Context context) throws IOException, InterruptedException {
 
         float number = 0;
         if (inlinks) {
@@ -137,7 +137,7 @@ public class NodeDumper extends Configured implements Tool {
     public static class SorterReducer extends
         Reducer<FloatWritable, Text, Text, FloatWritable> { 
       public void reduce(FloatWritable key, Iterator<Text> values,
-          Context context) throws IOException {
+          Context context) throws IOException, InterruptedException {
 
         // take the negative of the negative to get original value, sometimes 0
         // value are a little weird
@@ -195,7 +195,7 @@ public class NodeDumper extends Configured implements Tool {
     public static class DumperMapper extends
         Mapper<Text, Node, Text, FloatWritable> {
       public void map(Text key, Node node,
-          Context context) throws IOException {
+          Context context) throws IOException, InterruptedException {
 
         float number = 0;
         if (inlinks) {
@@ -222,7 +222,7 @@ public class NodeDumper extends Configured implements Tool {
     public static class DumperReducer extends
         Reducer<Text, FloatWritable, Text, FloatWritable> {
       public void reduce(Text key, Iterator<FloatWritable> values,
-          Context context) throws IOException {
+          Context context) throws IOException, InterruptedException {
 
         long numCollected = 0;
         float sumOrMax = 0;

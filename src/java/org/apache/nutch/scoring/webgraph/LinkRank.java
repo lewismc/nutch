@@ -85,7 +85,8 @@ public class LinkRank extends Configured implements Tool {
    * @throws IOException
    *           If an error occurs while running the counter job.
    */
-  private int runCounter(FileSystem fs, Path webGraphDb) throws IOException {
+  private int runCounter(FileSystem fs, Path webGraphDb) throws IOException,
+      ClassNotFoundException, InterruptedException {
 
     // configure the counter job
     Path numLinksPath = new Path(webGraphDb, NUM_NODES);
@@ -113,10 +114,11 @@ public class LinkRank extends Configured implements Tool {
     LOG.info("Starting link counter job");
     try {
       int complete = counter.waitForCompletion(true)?0:1;
-    } catch (IOException e) {
+    } catch (IOException | InterruptedException | ClassNotFoundException e) {
       LOG.error(StringUtils.stringifyException(e));
       throw e;
     }
+    
     LOG.info("Finished link counter job");
 
     // read the first (and only) line from the file which should be the
@@ -152,7 +154,8 @@ public class LinkRank extends Configured implements Tool {
    * @throws IOException
    *           If an error occurs while running the initializer job.
    */
-  private void runInitializer(Path nodeDb, Path output) throws IOException {
+  private void runInitializer(Path nodeDb, Path output) throws IOException,
+     InterruptedException, ClassNotFoundException {
 
     // configure the initializer
     Job initializer = NutchJob.getJobInstance(getConf());
@@ -174,7 +177,7 @@ public class LinkRank extends Configured implements Tool {
     LOG.info("Starting initialization job");
     try {
       int complete = initializer.waitForCompletion(true)?0:1;
-    } catch (IOException e) {
+    } catch (IOException | InterruptedException | ClassNotFoundException e) {
       LOG.error(StringUtils.stringifyException(e));
       throw e;
     }
@@ -196,7 +199,7 @@ public class LinkRank extends Configured implements Tool {
    *           If an error occurs while running the inverter job.
    */
   private void runInverter(Path nodeDb, Path outlinkDb, Path output)
-      throws IOException {
+      throws IOException, InterruptedException, ClassNotFoundException {
 
     // configure the inverter
     Job inverter = NutchJob.getJobInstance(getConf());
@@ -221,7 +224,7 @@ public class LinkRank extends Configured implements Tool {
     LOG.info("Starting inverter job");
     try {
       int complete = inverter.waitForCompletion(true)?0:1;
-    } catch (IOException e) {
+    } catch (IOException | InterruptedException | ClassNotFoundException e) {
       LOG.error(StringUtils.stringifyException(e));
       throw e;
     }
@@ -251,7 +254,8 @@ public class LinkRank extends Configured implements Tool {
    *           If an error occurs during link analysis.
    */
   private void runAnalysis(Path nodeDb, Path inverted, Path output,
-      int iteration, int numIterations, float rankOne) throws IOException {
+      int iteration, int numIterations, float rankOne) 
+      throws IOException, InterruptedException, ClassNotFoundException {
 
     Job analyzer = NutchJob.getJobInstance(getConf());
     Configuration conf = analyzer.getConfiguration();
@@ -277,7 +281,7 @@ public class LinkRank extends Configured implements Tool {
     LOG.info("Starting analysis job");
     try {
       int complete = analyzer.waitForCompletion(true)?0:1;
-    } catch (IOException e) {
+    } catch (IOException | InterruptedException | ClassNotFoundException e) {
       LOG.error(StringUtils.stringifyException(e));
       throw e;
     }
@@ -304,7 +308,7 @@ public class LinkRank extends Configured implements Tool {
         Mapper<Text, Node, Text, LongWritable> {
       public void map(Text key, Node value,
           Context context)
-          throws IOException {
+          throws IOException, InterruptedException {
         context.write(numNodes, one);
       }
     }
@@ -316,7 +320,7 @@ public class LinkRank extends Configured implements Tool {
         Reducer<Text, LongWritable, Text, LongWritable> {
       public void reduce(Text key, Iterator<LongWritable> values,
           Context context)
-          throws IOException {
+          throws IOException, InterruptedException {
 
         long total = 0;
         while (values.hasNext()) {
@@ -341,7 +345,8 @@ public class LinkRank extends Configured implements Tool {
       initialScore = conf.getFloat("link.analyze.initial.score", 1.0f);
     }
 
-    public void map(Text key, Node node, Context context) throws IOException {
+    public void map(Text key, Node node, Context context) 
+        throws IOException, InterruptedException {
 
       String url = key.toString();
       Node outNode = WritableUtils.clone(node, conf);
@@ -375,7 +380,7 @@ public class LinkRank extends Configured implements Tool {
         Mapper<Text, Writable, Text, ObjectWritable> {
       public void map(Text key, Writable value,
           Context context)
-          throws IOException {
+          throws IOException, InterruptedException {
 
         ObjectWritable objWrite = new ObjectWritable();
         objWrite.set(value);
@@ -391,7 +396,7 @@ public class LinkRank extends Configured implements Tool {
         Reducer<Text, ObjectWritable, Text, LinkDatum> {
       public void reduce(Text key, Iterator<ObjectWritable> values,
           Context context)
-          throws IOException {
+          throws IOException, InterruptedException {
 
         String fromUrl = key.toString();
         List<LinkDatum> outlinks = new ArrayList<>();
@@ -477,7 +482,7 @@ public class LinkRank extends Configured implements Tool {
         Mapper<Text, Writable, Text, ObjectWritable> {
       public void map(Text key, Writable value,
           Context context)
-          throws IOException {
+          throws IOException, InterruptedException {
 
         ObjectWritable objWrite = new ObjectWritable();
         objWrite.set(WritableUtils.clone(value, conf));
@@ -493,7 +498,7 @@ public class LinkRank extends Configured implements Tool {
         Reducer<Text, ObjectWritable, Text, Node> {
       public void reduce(Text key, Iterator<ObjectWritable> values,
           Context context)
-          throws IOException {
+          throws IOException, InterruptedException {
 
         String url = key.toString();
         Set<String> domains = new HashSet<>();
@@ -583,7 +588,8 @@ public class LinkRank extends Configured implements Tool {
    * @throws IOException
    *           If an error occurs during link analysis.
    */
-  public void analyze(Path webGraphDb) throws IOException {
+  public void analyze(Path webGraphDb) throws IOException, 
+      ClassNotFoundException, InterruptedException {
 
     SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
     long start = System.currentTimeMillis();

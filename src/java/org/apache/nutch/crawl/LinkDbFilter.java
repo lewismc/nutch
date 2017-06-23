@@ -76,7 +76,7 @@ public class LinkDbFilter extends Mapper<Text, Inlinks, Text, Inlinks> {
   }
 
   public void map(Text key, Inlinks value, Context context)
-      throws IOException {
+      throws IOException, InterruptedException {
     String url = key.toString();
     Inlinks result = new Inlinks();
     if (normalize) {

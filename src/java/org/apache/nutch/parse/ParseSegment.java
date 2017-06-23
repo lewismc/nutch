@@ -88,7 +88,7 @@ public class ParseSegment extends NutchTool implements Tool {
 
     public void map(WritableComparable<?> key, Content content,
         Context context)
-        throws IOException {
+        throws IOException, InterruptedException {
       // convert on the fly from old UTF8 keys
       if (key instanceof Text) {
         newKey.set(key.toString());
@@ -210,12 +210,13 @@ public class ParseSegment extends NutchTool implements Tool {
      Reducer<Text, Writable, Text, Writable> {
     public void reduce(Text key, Iterator<Writable> values,
         Context context)
-        throws IOException {
+        throws IOException, InterruptedException {
       context.write(key, values.next()); // collect first value
     }
   }
 
-  public void parse(Path segment) throws IOException {
+  public void parse(Path segment) throws IOException, 
+      InterruptedException, ClassNotFoundException {
     if (SegmentChecker.isParsed(segment, segment.getFileSystem(getConf()))) {
       LOG.warn("Segment: " + segment
           + " already parsed!! Skipped parsing this segment!!"); // NUTCH-1854
@@ -245,7 +246,13 @@ public class ParseSegment extends NutchTool implements Tool {
     job.setOutputKeyClass(Text.class);
     job.setOutputValueClass(ParseImpl.class);
 
-    int complete = job.waitForCompletion(true)?0:1;
+    try{
+      int complete = job.waitForCompletion(true)?0:1;
+    } catch (InterruptedException | ClassNotFoundException e) {
+      LOG.error(StringUtils.stringifyException(e));
+      throw e;
+    }
+
     long end = System.currentTimeMillis();
     LOG.info("ParseSegment: finished at " + sdf.format(end) + ", elapsed: "
         + TimingUtil.elapsedTime(start, end));

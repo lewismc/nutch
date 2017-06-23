@@ -75,7 +75,7 @@ public class CleaningJob implements Tool {
 
     @Override
     public void map(Text key, CrawlDatum value,
-        Context context) throws IOException {
+        Context context) throws IOException, InterruptedException {
 
       if (value.getStatus() == CrawlDatum.STATUS_DB_GONE
           || value.getStatus() == CrawlDatum.STATUS_DB_DUPLICATE) {
@@ -142,7 +142,8 @@ public class CleaningJob implements Tool {
     }
   }
 
-  public void delete(String crawldb, boolean noCommit) throws IOException {
+  public void delete(String crawldb, boolean noCommit) 
+    throws IOException, InterruptedException, ClassNotFoundException {
     SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
     long start = System.currentTimeMillis();
     LOG.info("CleaningJob: starting at " + sdf.format(start));
@@ -164,7 +165,12 @@ public class CleaningJob implements Tool {
     // need to expicitely allow deletions
     conf.setBoolean(IndexerMapReduce.INDEXER_DELETE, true);
 
-    int complete = job.waitForCompletion(true)?0:1;
+    try{
+      int complete = job.waitForCompletion(true)?0:1;
+    } catch (InterruptedException | ClassNotFoundException e) {
+      LOG.error(StringUtils.stringifyException(e));
+      throw e;
+    }
 
     long end = System.currentTimeMillis();
     LOG.info("CleaningJob: finished at " + sdf.format(end) + ", elapsed: "

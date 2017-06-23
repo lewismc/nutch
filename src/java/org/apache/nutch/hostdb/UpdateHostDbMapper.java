@@ -116,7 +116,7 @@ public class UpdateHostDbMapper
     */
   public void map(Text key, Writable value,
     Context context)
-    throws IOException {
+    throws IOException, InterruptedException {
 
     // Get the key!
     String keyStr = key.toString();

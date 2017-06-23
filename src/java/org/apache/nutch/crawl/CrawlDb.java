@@ -68,7 +68,7 @@ public class CrawlDb extends NutchTool implements Tool {
   }
 
   public void update(Path crawlDb, Path[] segments, boolean normalize,
-      boolean filter) throws IOException {
+      boolean filter) throws IOException, InterruptedException, ClassNotFoundException {
     boolean additionsAllowed = getConf().getBoolean(CRAWLDB_ADDITIONS_ALLOWED,
         true);
     update(crawlDb, segments, normalize, filter, additionsAllowed, false);
@@ -76,7 +76,7 @@ public class CrawlDb extends NutchTool implements Tool {
 
   public void update(Path crawlDb, Path[] segments, boolean normalize,
       boolean filter, boolean additionsAllowed, boolean force)
-      throws IOException {
+      throws IOException, InterruptedException, ClassNotFoundException {
     Path lock = lock(getConf(), crawlDb, force);
 
     SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
@@ -117,7 +117,7 @@ public class CrawlDb extends NutchTool implements Tool {
     }
     try {
       int complete = job.waitForCompletion(true)?0:1;
-    } catch (IOException e) {
+    } catch (IOException | InterruptedException | ClassNotFoundException e) {
       FileSystem fs = crawlDb.getFileSystem(getConf());
       LockUtil.removeLockFile(fs, lock);
       Path outPath = FileOutputFormat.getOutputPath(job);
@@ -125,6 +125,7 @@ public class CrawlDb extends NutchTool implements Tool {
         fs.delete(outPath, true);
       throw e;
     }
+    
 
     CrawlDb.install(job, crawlDb);
     long end = System.currentTimeMillis();

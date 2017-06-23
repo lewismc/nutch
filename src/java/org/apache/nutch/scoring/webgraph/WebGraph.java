@@ -249,7 +249,7 @@ public class WebGraph extends Configured implements Tool {
         Mapper<Text, Writable, Text, NutchWritable> {
       public void map(Text key, Writable value,
           Context context)
-          throws IOException {
+          throws IOException, InterruptedException {
 
         // normalize url, stop processing if null
         String url = normalizeUrl(key.toString());
@@ -328,7 +328,7 @@ public class WebGraph extends Configured implements Tool {
         Reducer<Text, NutchWritable, Text, LinkDatum> {
       public void reduce(Text key, Iterator<NutchWritable> values,
           Context context)
-          throws IOException {
+          throws IOException, InterruptedException {
 
         // aggregate all outlinks, get the most recent timestamp for a fetch
         // which should be the timestamp for all of the most recent outlinks
@@ -425,7 +425,7 @@ public class WebGraph extends Configured implements Tool {
         Mapper<Text, LinkDatum, Text, LinkDatum> {
       public void map(Text key, LinkDatum datum,
           Context context)
-          throws IOException {
+          throws IOException, InterruptedException {
 
         // get the to and from url and the anchor
         String fromUrl = key.toString();
@@ -462,7 +462,7 @@ public class WebGraph extends Configured implements Tool {
     public static class NodeDbReducer extends 
         Reducer<Text, LinkDatum, Text, Node> {
       public void reduce(Text key, Iterator<LinkDatum> values,
-          Context context) throws IOException {
+          Context context) throws IOException, InterruptedException {
 
         Node node = new Node();
         int numInlinks = 0;
@@ -506,7 +506,8 @@ public class WebGraph extends Configured implements Tool {
    *           If an error occurs while processing the WebGraph.
    */
   public void createWebGraph(Path webGraphDb, Path[] segments,
-      boolean normalize, boolean filter) throws IOException {
+      boolean normalize, boolean filter) throws IOException, 
+      InterruptedException, ClassNotFoundException {
 
     SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
     long start = System.currentTimeMillis();
@@ -598,7 +599,7 @@ public class WebGraph extends Configured implements Tool {
       if (!preserveBackup && fs.exists(oldOutlinkDb))
         fs.delete(oldOutlinkDb, true);
       LOG.info("OutlinkDb: finished");
-    } catch (IOException e) {
+    } catch (IOException | InterruptedException | ClassNotFoundException e) {
 
       // remove lock file and and temporary directory if an error occurs
       LockUtil.removeLockFile(fs, lock);
@@ -638,7 +639,7 @@ public class WebGraph extends Configured implements Tool {
       LOG.info("InlinkDb: installing " + inlinkDb);
       FSUtils.replace(fs, inlinkDb, tempInlinkDb, true);
       LOG.info("InlinkDb: finished");
-    } catch (IOException e) {
+    } catch (IOException | InterruptedException | ClassNotFoundException e) {
 
       // remove lock file and and temporary directory if an error occurs
       LockUtil.removeLockFile(fs, lock);
@@ -680,7 +681,7 @@ public class WebGraph extends Configured implements Tool {
       LOG.info("NodeDb: installing " + nodeDb);
       FSUtils.replace(fs, nodeDb, tempNodeDb, true);
       LOG.info("NodeDb: finished");
-    } catch (IOException e) {
+    } catch (IOException | InterruptedException | ClassNotFoundException e) {
 
       // remove lock file and and temporary directory if an error occurs
       LockUtil.removeLockFile(fs, lock);

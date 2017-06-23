@@ -228,7 +228,7 @@ public class LinkDumper extends Configured implements Tool {
         Mapper<Text, Writable, Text, ObjectWritable> {
       public void map(Text key, Writable value,
           Context context)
-          throws IOException {
+          throws IOException, InterruptedException {
 
         ObjectWritable objWrite = new ObjectWritable();
         objWrite.set(value);
@@ -244,7 +244,7 @@ public class LinkDumper extends Configured implements Tool {
         Reducer<Text, ObjectWritable, Text, LinkNode> {
       public void reduce(Text key, Iterator<ObjectWritable> values,
           Context context)
-          throws IOException {
+          throws IOException, InterruptedException {
 
         String fromUrl = key.toString();
         List<LinkDatum> outlinks = new ArrayList<>();
@@ -299,7 +299,7 @@ public class LinkDumper extends Configured implements Tool {
      */
     public void reduce(Text key, Iterator<LinkNode> values,
         Context context)
-        throws IOException {
+        throws IOException, InterruptedException {
 
       List<LinkNode> nodeList = new ArrayList<>();
       int numNodes = 0;
@@ -328,7 +328,8 @@ public class LinkDumper extends Configured implements Tool {
    * Runs the inverter and merger jobs of the LinkDumper tool to create the url
    * to inlink node database.
    */
-  public void dumpLinks(Path webGraphDb) throws IOException {
+  public void dumpLinks(Path webGraphDb) throws IOException, 
+      InterruptedException, ClassNotFoundException {
 
     SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
     long start = System.currentTimeMillis();
@@ -362,7 +363,7 @@ public class LinkDumper extends Configured implements Tool {
       LOG.info("LinkDumper: running inverter");
       int complete = inverter.waitForCompletion(true)?0:1;
       LOG.info("LinkDumper: finished inverter");
-    } catch (IOException e) {
+    } catch (IOException | InterruptedException | ClassNotFoundException e) {
       LOG.error(StringUtils.stringifyException(e));
       throw e;
     }

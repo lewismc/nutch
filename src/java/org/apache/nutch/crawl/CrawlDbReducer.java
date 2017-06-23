@@ -68,7 +68,7 @@ public class CrawlDbReducer extends
   }
 
   public void reduce(Text key, Iterator<CrawlDatum> values,
-      Context context) throws IOException {
+      Context context) throws IOException, InterruptedException {
 
     CrawlDatum fetch = new CrawlDatum();
     CrawlDatum old = new CrawlDatum();

@@ -82,7 +82,7 @@ public class CrawlDbMerger extends Configured implements Tool {
 
     public void reduce(Text key, Iterator<CrawlDatum> values,
         Context context)
-        throws IOException {
+        throws IOException, InterruptedException {
       long resTime = 0L;
       boolean resSet = false;
       meta = new org.apache.hadoop.io.MapWritable();

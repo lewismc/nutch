@@ -163,7 +163,7 @@ public class ArcSegmentCreator extends Configured implements Tool {
    */
   private static ParseStatus output(Context context,
       String segmentName, Text key, CrawlDatum datum, Content content,
-      ProtocolStatus pstatus, int status) {
+      ProtocolStatus pstatus, int status) throws InterruptedException {
 
     // set the fetch status and the fetch time
     datum.setStatus(status);
@@ -291,7 +291,7 @@ public class ArcSegmentCreator extends Configured implements Tool {
      *          The context of the mapreduce job.
      */
     public void map(Text key, BytesWritable bytes,
-        Context context) throws IOException {
+        Context context) throws IOException, InterruptedException {
 
       String[] headers = key.toString().split("\\s+");
       String urlStr = headers[0];
@@ -366,7 +366,7 @@ public class ArcSegmentCreator extends Configured implements Tool {
    *           If an IO error occurs while running the job.
    */
   public void createSegments(Path arcFiles, Path segmentsOutDir)
-      throws IOException {
+      throws IOException, InterruptedException, ClassNotFoundException {
 
     SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
     long start = System.currentTimeMillis();
@@ -389,7 +389,13 @@ public class ArcSegmentCreator extends Configured implements Tool {
     job.setOutputKeyClass(Text.class);
     job.setOutputValueClass(NutchWritable.class);
 
-    int complete = job.waitForCompletion(true)?0:1;
+    try {
+      int complete = job.waitForCompletion(true)?0:1;
+    } catch (IOException | InterruptedException | ClassNotFoundException e){
+      LOG.error(StringUtils.stringifyException(e));
+      throw e;
+    }
+
 
     long end = System.currentTimeMillis();
     LOG.info("ArcSegmentCreator: finished at " + sdf.format(end)

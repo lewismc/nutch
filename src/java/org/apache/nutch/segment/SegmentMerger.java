@@ -40,6 +40,7 @@ import org.apache.hadoop.io.SequenceFile.CompressionType;
 import org.apache.hadoop.io.SequenceFile.Metadata;
 import org.apache.hadoop.io.compress.DefaultCodec;
 import org.apache.hadoop.util.Progressable;
+import org.apache.hadoop.util.StringUtils;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapred.FileSplit;
@@ -142,7 +143,7 @@ public class SegmentMerger extends Configured implements Tool{
 
     public RecordReader<Text, MetaWrapper> getRecordReader(
         final InputSplit split, final Job job, Context context)
-        throws IOException {
+        throws IOException, InterruptedException {
 
       context.setStatus(split.toString());
       Configuration conf = job.getConfiguration();
@@ -174,32 +175,33 @@ public class SegmentMerger extends Configured implements Tool{
       }
       final SequenceFileRecordReader<Text, Writable> splitReader = new SequenceFileRecordReader<>();
 
-      try {
-        return new SequenceFileRecordReader<Text, MetaWrapper>() {
+      return new SequenceFileRecordReader<Text, MetaWrapper>() {
 
-          public synchronized boolean next(Text key, MetaWrapper wrapper)
-              throws IOException {
+        public synchronized boolean next(Text key, MetaWrapper wrapper)
+            throws IOException, InterruptedException {
+           try { 
             LOG.debug("Running OIF.next()");
 
             boolean res = splitReader.nextKeyValue();
             wrapper.set(w);
             wrapper.setMeta(SEGMENT_PART_KEY, spString);
             return res;
+          } catch (InterruptedException e) {
+            LOG.error(StringUtils.stringifyException(e));
+            throw e;
           }
+        }
 
-          @Override
-          public synchronized void close() throws IOException {
-            splitReader.close();
-          }
+        @Override
+        public synchronized void close() throws IOException {
+          splitReader.close();
+        }
 
-          public MetaWrapper createValue() {
-            return new MetaWrapper();
-          }
+        public MetaWrapper createValue() {
+          return new MetaWrapper();
+        }
 
-        };
-      } catch (IOException e) {
-        throw new RuntimeException("Cannot create RecordReader: ", e);
-      }
+      };
     }
   }
 
@@ -395,7 +397,7 @@ public class SegmentMerger extends Configured implements Tool{
   public static class SegmentMergerMapper extends
       Mapper<Text, MetaWrapper, Text, MetaWrapper> {
     public void map(Text key, MetaWrapper value,
-        Context context) throws IOException {
+        Context context) throws IOException, InterruptedException {
       Text newKey = new Text();
       String url = key.toString();
       if (normalizers != null) {
@@ -432,7 +434,7 @@ public class SegmentMerger extends Configured implements Tool{
   public static class SegmentMergerReducer extends
       Reducer<Text, MetaWrapper, Text, MetaWrapper> {
     public void reduce(Text key, Iterator<MetaWrapper> values,
-        Context context) throws IOException {
+        Context context) throws IOException, InterruptedException {
       CrawlDatum lastG = null;
       CrawlDatum lastF = null;
       CrawlDatum lastSig = null;

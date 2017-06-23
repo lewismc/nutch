@@ -101,7 +101,7 @@ public class WARCExporter extends Configured implements Tool {
     public static class WARCMapper extends 
         Mapper<Text, Writable, Text, NutchWritable> {
       public void map(Text key, Writable value, Context context)
-              throws IOException {
+              throws IOException, InterruptedException {
         context.write(key, new NutchWritable(value));
       }
     }
@@ -109,7 +109,7 @@ public class WARCExporter extends Configured implements Tool {
     public static class WARCReducer extends
         Reducer<Text, NutchWritable, NullWritable, WARCWritable> {
       public void reduce(Text key, Iterator<NutchWritable> values,
-          Context context) throws IOException {
+          Context context) throws IOException, InterruptedException {
 
         Content content = null;
         CrawlDatum cd = null;
@@ -251,7 +251,7 @@ public class WARCExporter extends Configured implements Tool {
     }
   }
 
-  public int generateWARC(String output, List<Path> segments) {
+  public int generateWARC(String output, List<Path> segments) throws IOException{
     SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
     long start = System.currentTimeMillis();
     LOG.info("WARCExporter: starting at {}", sdf.format(start));

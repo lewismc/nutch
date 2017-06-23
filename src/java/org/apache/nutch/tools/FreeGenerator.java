@@ -90,7 +90,7 @@ public class FreeGenerator extends Configured implements Tool {
       Generator.SelectorEntry entry = new Generator.SelectorEntry();
 
       public void map(WritableComparable<?> key, Text value,
-          Context context) throws IOException {
+          Context context) throws IOException, InterruptedException {
         // value is a line of text
         String urlString = value.toString();
         try {
@@ -127,7 +127,7 @@ public class FreeGenerator extends Configured implements Tool {
     public static class FGReducer extends
         Reducer<Text, Generator.SelectorEntry, Text, CrawlDatum> {
       public void reduce(Text key, Iterator<Generator.SelectorEntry> values,
-          Context context) throws IOException {
+          Context context) throws IOException, InterruptedException {
         // pick unique urls from values - discard the reduce key due to hash
         // collisions
         HashMap<Text, CrawlDatum> unique = new HashMap<>();

@@ -117,7 +117,7 @@ public class LinkDbReader extends Configured implements Tool, Closeable {
 
     public void close() {}
     public void map(Text key, Inlinks value, Context context)
-            throws IOException {
+            throws IOException, InterruptedException {
 
       if (pattern != null) {
         matcher = pattern.matcher(key.toString());
@@ -130,7 +130,8 @@ public class LinkDbReader extends Configured implements Tool, Closeable {
     }
   }
 
-  public void processDumpJob(String linkdb, String output, String regex) throws IOException {
+  public void processDumpJob(String linkdb, String output, String regex) 
+    throws IOException, InterruptedException, ClassNotFoundException {
     SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
     long start = System.currentTimeMillis();
     if (LOG.isInfoEnabled()) {
@@ -157,7 +158,12 @@ public class LinkDbReader extends Configured implements Tool, Closeable {
     job.setOutputKeyClass(Text.class);
     job.setOutputValueClass(Inlinks.class);
 
-    int complete = job.waitForCompletion(true)?0:1;
+    try{
+      int complete = job.waitForCompletion(true)?0:1;
+    } catch (InterruptedException | ClassNotFoundException e){
+      LOG.error(StringUtils.stringifyException(e));
+      throw e;
+    }
 
     long end = System.currentTimeMillis();
     LOG.info("LinkDb dump: finished at " + sdf.format(end) + ", elapsed: "

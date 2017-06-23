@@ -64,6 +64,7 @@ import org.apache.hadoop.mapreduce.TaskAttemptContext;
 import org.apache.hadoop.util.Progressable;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
+import org.apache.hadoop.util.StringUtils;
 import org.apache.nutch.util.JexlUtil;
 import org.apache.nutch.util.NutchConfiguration;
 import org.apache.nutch.util.NutchJob;
@@ -193,7 +194,7 @@ public class CrawlDbReader extends Configured implements Closeable, Tool {
     }
 
     public void map(Text key, CrawlDatum value, Context context)
-        throws IOException {
+        throws IOException, InterruptedException {
       context.write(new Text("T"), COUNT_1);
       context.write(new Text("status " + value.getStatus()), COUNT_1);
       context
@@ -230,7 +231,7 @@ public class CrawlDbReader extends Configured implements Closeable, Tool {
 
     private void reduceMinMaxTotal(String keyPrefix, Iterator<LongWritable> values,
         Context context)
-        throws IOException {
+        throws IOException, InterruptedException {
       long total = 0;
       long min = Long.MAX_VALUE;
       long max = Long.MIN_VALUE;
@@ -249,7 +250,7 @@ public class CrawlDbReader extends Configured implements Closeable, Tool {
     
     public void reduce(Text key, Iterator<LongWritable> values,
         Context context)
-        throws IOException {
+        throws IOException, InterruptedException{
       val.set(0L);
       String k = key.toString();
       if (k.equals("sc") || k.equals("ft") || k.equals("fi")) {
@@ -274,7 +275,7 @@ public class CrawlDbReader extends Configured implements Closeable, Tool {
 
     public void reduce(Text key, Iterator<LongWritable> values,
         Context context)
-        throws IOException {
+        throws IOException, InterruptedException {
 
       String k = key.toString();
       if (k.equals("T")) {
@@ -334,7 +335,7 @@ public class CrawlDbReader extends Configured implements Closeable, Tool {
 
     public void map(Text key, CrawlDatum value,
         Context context)
-        throws IOException {
+        throws IOException, InterruptedException {
       if (value.getScore() < min)
         return; // don't collect low-scoring records
       fw.set(-value.getScore()); // reverse sorting order
@@ -349,7 +350,7 @@ public class CrawlDbReader extends Configured implements Closeable, Tool {
 
     public void reduce(FloatWritable key, Iterator<Text> values,
         Context context)
-        throws IOException {
+        throws IOException, InterruptedException {
       while (values.hasNext() && count < topN) {
         key.set(-key.get());
         context.write(key, values.next());
@@ -370,7 +371,8 @@ public class CrawlDbReader extends Configured implements Closeable, Tool {
     closeReaders();
   }
 
-  private TreeMap<String, LongWritable> processStatJobHelper(String crawlDb, Configuration config, boolean sort) throws IOException{
+  private TreeMap<String, LongWritable> processStatJobHelper(String crawlDb, Configuration config, boolean sort) 
+          throws IOException, InterruptedException, ClassNotFoundException{
 	  Path tmpFolder = new Path(crawlDb, "stat_tmp" + System.currentTimeMillis());
 
 	  Job job = NutchJob.getJobInstance(config);
@@ -393,8 +395,12 @@ public class CrawlDbReader extends Configured implements Closeable, Tool {
 	  // https://issues.apache.org/jira/browse/NUTCH-1029
 	  config.setBoolean("mapreduce.fileoutputcommitter.marksuccessfuljobs", false);
 
-          int complete = job.waitForCompletion(true)?0:1;
-
+          try {
+            int complete = job.waitForCompletion(true)?0:1;
+          } catch (InterruptedException | ClassNotFoundException e) {
+            LOG.error(StringUtils.stringifyException(e));
+            throw e;
+          }
 	  // reading the result
 	  FileSystem fileSystem = tmpFolder.getFileSystem(config);
 	  MapFile.Reader[] readers = MapFileOutputFormat.getReaders(tmpFolder, config);
@@ -434,7 +440,7 @@ public class CrawlDbReader extends Configured implements Closeable, Tool {
   }
   
   public void processStatJob(String crawlDb, Configuration config, boolean sort)
-      throws IOException {
+      throws IOException, InterruptedException, ClassNotFoundException {
 
     if (LOG.isInfoEnabled()) {
       LOG.info("CrawlDb statistics start: " + crawlDb);
@@ -513,7 +519,7 @@ public class CrawlDbReader extends Configured implements Closeable, Tool {
 
   public void processDumpJob(String crawlDb, String output,
       Configuration config, String format, String regex, String status,
-      Integer retry, String expr) throws IOException {
+      Integer retry, String expr) throws IOException, ClassNotFoundException, InterruptedException {
     if (LOG.isInfoEnabled()) {
       LOG.info("CrawlDb dump: starting");
       LOG.info("CrawlDb db: " + crawlDb);
@@ -551,7 +557,13 @@ public class CrawlDbReader extends Configured implements Closeable, Tool {
     job.setOutputKeyClass(Text.class);
     job.setOutputValueClass(CrawlDatum.class);
 
-    int complete = job.waitForCompletion(true)?0:1;
+    try {
+      int complete = job.waitForCompletion(true)?0:1;
+    } catch (InterruptedException | ClassNotFoundException e) {
+      LOG.error(StringUtils.stringifyException(e));
+      throw e;
+    }
+
     if (LOG.isInfoEnabled()) {
       LOG.info("CrawlDb dump: done");
     }
@@ -583,7 +595,7 @@ public class CrawlDbReader extends Configured implements Closeable, Tool {
 
     public void map(Text key, CrawlDatum value,
         Context context)
-        throws IOException {
+        throws IOException, InterruptedException {
 
       // check retry
       if (retry != -1) {
@@ -618,7 +630,8 @@ public class CrawlDbReader extends Configured implements Closeable, Tool {
   }
 
   public void processTopNJob(String crawlDb, long topN, float min,
-      String output, Configuration config) throws IOException {
+      String output, Configuration config) throws IOException, 
+      ClassNotFoundException, InterruptedException {
 
     if (LOG.isInfoEnabled()) {
       LOG.info("CrawlDb topN: starting (topN=" + topN + ", min=" + min + ")");
@@ -643,7 +656,13 @@ public class CrawlDbReader extends Configured implements Closeable, Tool {
     job.setOutputValueClass(Text.class);
 
     job.getConfiguration().setFloat("db.reader.topn.min", min);
-    int complete = job.waitForCompletion(true)?0:1;
+    
+    try{
+      int complete = job.waitForCompletion(true)?0:1;
+    } catch (InterruptedException | ClassNotFoundException e) {
+      LOG.error(StringUtils.stringifyException(e));
+      throw e;
+    }
 
     if (LOG.isInfoEnabled()) {
       LOG.info("CrawlDb topN: collecting topN scores.");
@@ -664,7 +683,13 @@ public class CrawlDbReader extends Configured implements Closeable, Tool {
 
     job.setNumReduceTasks(1); // create a single file.
 
-    complete = job.waitForCompletion(true)?0:1;
+    try{
+      int complete = job.waitForCompletion(true)?0:1;
+    } catch (InterruptedException | ClassNotFoundException e) {
+      LOG.error(StringUtils.stringifyException(e));
+      throw e;
+    }
+
     FileSystem fs = tempDir.getFileSystem(config);
     fs.delete(tempDir, true);
     if (LOG.isInfoEnabled()) {
@@ -673,7 +698,7 @@ public class CrawlDbReader extends Configured implements Closeable, Tool {
 
   }
 
-  public int run(String[] args) throws IOException {
+  public int run(String[] args) throws IOException, InterruptedException, ClassNotFoundException {
     @SuppressWarnings("resource")
     CrawlDbReader dbr = new CrawlDbReader();
 

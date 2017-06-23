@@ -465,7 +465,7 @@ public class FetcherThread extends Thread {
 
   private Text handleRedirect(Text url, CrawlDatum datum, String urlString,
       String newUrl, boolean temp, String redirType)
-      throws MalformedURLException, URLFilterException {
+      throws MalformedURLException, URLFilterException, InterruptedException {
     newUrl = normalizers.normalize(newUrl, URLNormalizers.SCOPE_FETCHER);
     newUrl = urlFilters.filter(newUrl);
 
@@ -567,13 +567,13 @@ public class FetcherThread extends Thread {
   }
 
   private ParseStatus output(Text key, CrawlDatum datum, Content content,
-      ProtocolStatus pstatus, int status) {
+      ProtocolStatus pstatus, int status) throws InterruptedException{
 
     return output(key, datum, content, pstatus, status, 0);
   }
 
   private ParseStatus output(Text key, CrawlDatum datum, Content content,
-      ProtocolStatus pstatus, int status, int outlinkDepth) {
+      ProtocolStatus pstatus, int status, int outlinkDepth) throws InterruptedException{
 
     datum.setStatus(status);
     datum.setFetchTime(System.currentTimeMillis());
@@ -788,7 +788,7 @@ public class FetcherThread extends Thread {
     return null;
   }
   
-  private void outputRobotsTxt(List<Content> robotsTxtContent) {
+  private void outputRobotsTxt(List<Content> robotsTxtContent) throws InterruptedException {
     for (Content robotsTxt : robotsTxtContent) {
       LOG.debug("fetched and stored robots.txt {}",
           robotsTxt.getUrl());

@@ -83,7 +83,7 @@ public class LinkDbMerger extends Configured implements Tool {
   public static class LinkDbMergeReducer extends 
       Reducer<Text, Inlinks, Text, Inlinks> {
     public void reduce(Text key, Iterator<Inlinks> values, Context context)
-        throws IOException {
+        throws IOException, InterruptedException {
 
       Inlinks result = new Inlinks();
 

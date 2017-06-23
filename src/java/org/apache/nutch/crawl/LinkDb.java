@@ -95,7 +95,7 @@ public class LinkDb extends NutchTool implements Tool {
       Mapper<Text, ParseData, Text, Inlinks> {
     public void map(Text key, ParseData parseData,
         Context context)
-        throws IOException {
+        throws IOException, InterruptedException {
       String fromUrl = key.toString();
       String fromHost = getHost(fromUrl);
       if (urlNormalizers != null) {
@@ -175,7 +175,7 @@ public class LinkDb extends NutchTool implements Tool {
   }
 
   public void invert(Path linkDb, final Path segmentsDir, boolean normalize,
-      boolean filter, boolean force) throws IOException {
+      boolean filter, boolean force) throws IOException, InterruptedException, ClassNotFoundException {
     FileSystem fs = segmentsDir.getFileSystem(getConf());
     FileStatus[] files = fs.listStatus(segmentsDir,
         HadoopFSUtil.getPassDirectoriesFilter(fs));
@@ -183,7 +183,7 @@ public class LinkDb extends NutchTool implements Tool {
   }
 
   public void invert(Path linkDb, Path[] segments, boolean normalize,
-      boolean filter, boolean force) throws IOException {
+      boolean filter, boolean force) throws IOException, InterruptedException, ClassNotFoundException {
     Job job = LinkDb.createJob(getConf(), linkDb, normalize, filter);
     Path lock = new Path(linkDb, LOCK_NAME);
     FileSystem fs = linkDb.getFileSystem(getConf());
@@ -222,10 +222,11 @@ public class LinkDb extends NutchTool implements Tool {
     }
     try {
       int complete = job.waitForCompletion(true)?0:1;
-    } catch (IOException e) {
+    } catch (IOException | InterruptedException | ClassNotFoundException e) {
       LockUtil.removeLockFile(fs, lock);
       throw e;
     }
+
     if (fs.exists(currentLinkDb)) {
       if (LOG.isInfoEnabled()) {
         LOG.info("LinkDb: merging with existing linkdb: " + linkDb);

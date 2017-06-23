@@ -70,6 +70,9 @@ public class QueueFeeder extends Thread {
         } catch (IOException e) {
           LOG.error("QueueFeeder error reading input, record " + cnt, e);
           return;
+        } catch (InterruptedException e) {
+          LOG.info("QueueFeeder interrupted, exception: "+e);
+          return;
         }
         continue;
       }
@@ -97,6 +100,8 @@ public class QueueFeeder extends Thread {
           } catch (IOException e) {
             LOG.error("QueueFeeder error reading input, record " + cnt, e);
             return;
+          } catch (InterruptedException e) {
+            LOG.info("QueueFeeder interrupted, exception: "+e);
           }
         }
       }

@@ -184,7 +184,7 @@ public class Generator extends NutchTool implements Tool {
       
       public void map(Text key, CrawlDatum value,
           	Context context)
-          	throws IOException {
+          	throws IOException, InterruptedException {
         Text url = key;
         if (filter) {
           // If filtering is on don't generate URLs that don't pass
@@ -273,7 +273,7 @@ public class Generator extends NutchTool implements Tool {
 
       public void reduce(FloatWritable key, Iterator<SelectorEntry> values,
           Context context)
-          throws IOException {
+          throws IOException, InterruptedException {
         while (values.hasNext()) {
 
           if (count == limit) {
@@ -392,7 +392,7 @@ public class Generator extends NutchTool implements Tool {
 
     public void map(FloatWritable key, SelectorEntry value,
         Context context)
-        throws IOException {
+        throws IOException, InterruptedException {
       SelectorEntry entry = value;
       context.write(entry.url, entry);
     }
@@ -403,7 +403,7 @@ public class Generator extends NutchTool implements Tool {
 
     public void reduce(Text key, Iterator<SelectorEntry> values,
         Context context)
-        throws IOException {
+        throws IOException, InterruptedException {
       // if using HashComparator, we get only one input key in case of
       // hash collision
       // so use only URLs from values
@@ -463,7 +463,7 @@ public class Generator extends NutchTool implements Tool {
            Mapper<Text, CrawlDatum, Text, CrawlDatum> {
       public void map(Text key, CrawlDatum value,
           Context context)
-          throws IOException {
+          throws IOException, InterruptedException {
         context.write(key, value);
       }
     }
@@ -476,7 +476,7 @@ public class Generator extends NutchTool implements Tool {
 
       public void reduce(Text key, Iterator<CrawlDatum> values,
           Context context)
-          throws IOException {
+          throws IOException, InterruptedException {
         genTime.set(0L);
         while (values.hasNext()) {
           CrawlDatum val = values.next();
@@ -509,7 +509,7 @@ public class Generator extends NutchTool implements Tool {
   }
 
   public Path[] generate(Path dbDir, Path segments, int numLists, long topN,
-      long curTime) throws IOException {
+      long curTime) throws IOException, InterruptedException, ClassNotFoundException {
 
     Job job = NutchJob.getJobInstance(getConf());
     Configuration conf = job.getConfiguration();
@@ -524,7 +524,7 @@ public class Generator extends NutchTool implements Tool {
    * normalise and set the number of segments to 1
    **/
   public Path[] generate(Path dbDir, Path segments, int numLists, long topN,
-      long curTime, boolean filter, boolean force) throws IOException {
+      long curTime, boolean filter, boolean force) throws IOException, InterruptedException, ClassNotFoundException {
     return generate(dbDir, segments, numLists, topN, curTime, filter, true,
         force, 1, null);
   }
@@ -553,7 +553,7 @@ public class Generator extends NutchTool implements Tool {
    */
   public Path[] generate(Path dbDir, Path segments, int numLists, long topN,
       long curTime, boolean filter, boolean norm, boolean force,
-      int maxNumSegments, String expr) throws IOException {
+      int maxNumSegments, String expr) throws IOException, InterruptedException, ClassNotFoundException {
 
     Path tempDir = new Path(getConf().get("mapred.temp.dir", ".")
         + "/generate-temp-" + java.util.UUID.randomUUID().toString());
@@ -615,7 +615,7 @@ public class Generator extends NutchTool implements Tool {
 
     try {
       int complete = job.waitForCompletion(true)?0:1;
-    } catch (IOException e) {
+    } catch (IOException | InterruptedException | ClassNotFoundException e) {
       LockUtil.removeLockFile(getConf(), lock);
       fs.delete(tempDir, true);
       throw e;
@@ -673,12 +673,13 @@ public class Generator extends NutchTool implements Tool {
       try {
         int complete = job.waitForCompletion(true)?0:1;
         CrawlDb.install(job, dbDir);
-      } catch (IOException e) {
+      } catch (IOException | InterruptedException | ClassNotFoundException e) {
         LockUtil.removeLockFile(getConf(), lock);
         fs.delete(tempDir, true);
         fs.delete(tempDir2, true);
         throw e;
       }
+
       fs.delete(tempDir2, true);
     }
 
@@ -694,7 +695,7 @@ public class Generator extends NutchTool implements Tool {
   }
 
   private Path partitionSegment(Path segmentsDir, Path inputDir, int numLists)
-      throws IOException {
+      throws IOException, ClassNotFoundException, InterruptedException {
     // invert again, partition by host/domain/IP, sort by url hash
     if (LOG.isInfoEnabled()) {
       LOG.info("Generator: Partitioning selected urls for politeness.");
@@ -724,7 +725,13 @@ public class Generator extends NutchTool implements Tool {
     job.setOutputKeyClass(Text.class);
     job.setOutputValueClass(CrawlDatum.class);
     job.setSortComparatorClass(HashComparator.class);
-    int complete = job.waitForCompletion(true)?0:1;
+    try {
+      int complete = job.waitForCompletion(true)?0:1;
+    } catch (InterruptedException | ClassNotFoundException e) {
+      LOG.error(StringUtils.stringifyException(e));  
+      throw e;
+    }
+
     return segment;
   }
 
