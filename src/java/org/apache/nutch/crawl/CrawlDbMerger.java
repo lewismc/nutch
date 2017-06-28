@@ -159,7 +159,7 @@ public class CrawlDbMerger extends Configured implements Tool {
   }
 
   public static Job createMergeJob(Configuration conf, Path output,
-      boolean normalize, boolean filter) {
+      boolean normalize, boolean filter) throws IOException {
     Path newCrawlDb = new Path(output,
         "merge-" + Integer.toString(new Random().nextInt(Integer.MAX_VALUE)));
 

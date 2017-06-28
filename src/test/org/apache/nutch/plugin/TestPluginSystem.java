@@ -27,7 +27,7 @@ import java.util.Locale;
 import java.util.Properties;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.mapred.JobConf;
+import org.apache.hadoop.mapreduce.Job;
 import org.apache.nutch.util.NutchConfiguration;
 import org.apache.nutch.util.NutchJob;
 import org.junit.After;
@@ -103,16 +103,18 @@ public class TestPluginSystem {
   public void testRepositoryCache() {
     Configuration config = NutchConfiguration.create();
     PluginRepository repo = PluginRepository.get(config);
-    JobConf job = new NutchJob(config);
-    PluginRepository repo1 = PluginRepository.get(job);
+    Job job = NutchJob.getJobInstance(config);
+    config = job.getConfiguration();
+    PluginRepository repo1 = PluginRepository.get(conf);
     Assert.assertTrue(repo == repo1);
     // now construct a config without UUID
     config = new Configuration();
     config.addResource("nutch-default.xml");
     config.addResource("nutch-site.xml");
     repo = PluginRepository.get(config);
-    job = new NutchJob(config);
-    repo1 = PluginRepository.get(job);
+    job = NutchJob.getJobInstance(config);
+    config = job.getConfiguration();
+    repo1 = PluginRepository.get(conf);
     Assert.assertTrue(repo1 != repo);
   }
 

@@ -27,7 +27,7 @@ import junit.framework.TestCase;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.Text;
-import org.apache.hadoop.mapred.JobConf;
+import org.apache.hadoop.mapreduce.Job;
 import org.apache.nutch.crawl.CrawlDbUpdateUtil;
 import org.apache.nutch.protocol.Content;
 import org.apache.nutch.util.TimingUtil;
@@ -76,7 +76,7 @@ public class ContinuousCrawlTestUtil extends TestCase {
 
   protected ContinuousCrawlTestUtil(Configuration conf) {
     configuration = conf;
-    schedule = FetchScheduleFactory.getFetchSchedule(new JobConf(conf));
+    schedule = FetchScheduleFactory.getFetchSchedule(conf);
     signatureImpl = SignatureFactory.getSignature(conf);
   }
 

@@ -24,7 +24,7 @@ import java.util.Iterator;
 import java.util.List;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.mapred.JobConf;
+import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.util.StringUtils;
 
 import org.apache.nutch.crawl.CrawlDatum;
@@ -104,7 +104,7 @@ public class TestCrawlDbStates {
       LOG.info("Testing state transitions with " + sched);
       conf.set("db.fetch.schedule.class", "org.apache.nutch.crawl." + sched);
       FetchSchedule schedule = FetchScheduleFactory
-          .getFetchSchedule(new JobConf(conf));
+          .getFetchSchedule(conf);
       for (int i = 0; i < fetchDbStatusPairs.length; i++) {
         byte fromDbStatus = fetchDbStatusPairs[i][1];
         for (int j = 0; j < fetchDbStatusPairs.length; j++) {
@@ -204,7 +204,7 @@ public class TestCrawlDbStates {
       LOG.info("Testing inject with " + sched);
       conf.set("db.fetch.schedule.class", "org.apache.nutch.crawl." + sched);
       FetchSchedule schedule = FetchScheduleFactory
-          .getFetchSchedule(new JobConf(conf));
+          .getFetchSchedule(conf);
       List<CrawlDatum> values = new ArrayList<CrawlDatum>();
       for (int i = 0; i < fetchDbStatusPairs.length; i++) {
         byte fromDbStatus = fetchDbStatusPairs[i][1];
@@ -319,7 +319,7 @@ public class TestCrawlDbStates {
       maxFetchInterval += (24 * 60 * 60); // but take one day more to avoid
                                           // false alarms
       maxFetchInterval *= 1000; // in milli-seconds
-      schedule = FetchScheduleFactory.getFetchSchedule(new JobConf(conf));
+      schedule = FetchScheduleFactory.getFetchSchedule(conf);
     }
 
     @Override

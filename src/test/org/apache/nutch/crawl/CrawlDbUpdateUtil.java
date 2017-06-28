@@ -29,11 +29,11 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapred.Counters;
 import org.apache.hadoop.mapred.Counters.Counter;
-import org.apache.hadoop.mapred.InputSplit;
-import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.mapred.OutputCollector;
-import org.apache.hadoop.mapred.Reducer;
-import org.apache.hadoop.mapred.Reporter;
+import org.apache.hadoop.mapreduce.InputSplit;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.Reducer.Context;
+import org.apache.hadoop.mapreduce.OutputCommitter;
 import org.apache.hadoop.util.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,16 +55,15 @@ public class CrawlDbUpdateUtil<T extends Reducer<Text, CrawlDatum, Text, CrawlDa
 
   protected CrawlDbUpdateUtil(T red, Configuration conf) {
     reducer = red;
-    reducer.configure(new JobConf(conf));
+    reducer.configure(Job.getInstance(conf));
   }
 
-  /** {@link OutputCollector} to collect all values in a {@link List} */
-  private class ListOutputCollector implements
-      OutputCollector<Text, CrawlDatum> {
+  /** {@link Context} to collect all values in a {@link List} */
+  private class DummyContext extends Context {
 
     private List<CrawlDatum> values = new ArrayList<CrawlDatum>();
 
-    public void collect(Text key, CrawlDatum value) throws IOException {
+    public void write(Text key, CrawlDatum value) throws IOException {
       values.add(value);
     }
 
@@ -72,15 +71,6 @@ public class CrawlDbUpdateUtil<T extends Reducer<Text, CrawlDatum, Text, CrawlDa
     public List<CrawlDatum> getValues() {
       return values;
     }
-
-  }
-
-  /**
-   * Dummy reporter which does nothing and does not return null for getCounter()
-   * 
-   * @see {@link Reporter#NULL}
-   */
-  private class DummyReporter implements Reporter {
 
     private Counters dummyCounters = new Counters();
 
@@ -96,13 +86,7 @@ public class CrawlDbUpdateUtil<T extends Reducer<Text, CrawlDatum, Text, CrawlDa
     }
 
     public InputSplit getInputSplit() throws UnsupportedOperationException {
-      throw new UnsupportedOperationException("Dummy reporter without input");
-    }
-
-    public void incrCounter(Enum<?> arg0, long arg1) {
-    }
-
-    public void incrCounter(String arg0, String arg1, long arg2) {
+      throw new UnsupportedOperationException("Dummy context without input");
     }
 
     public void setStatus(String arg0) {
@@ -111,7 +95,14 @@ public class CrawlDbUpdateUtil<T extends Reducer<Text, CrawlDatum, Text, CrawlDa
     public float getProgress() {
       return 1f;
     }
+    
+    public OutputCommitter getOutputCommitter() {
+      throw new UnsupportedOperationException("Dummy context without committer");
+    }
 
+    public boolean nextKey(){
+      return false;
+    }
   }
 
   /**
@@ -128,13 +119,13 @@ public class CrawlDbUpdateUtil<T extends Reducer<Text, CrawlDatum, Text, CrawlDa
       return new ArrayList<CrawlDatum>(0);
     }
     Collections.shuffle(values); // sorting of values should have no influence
-    ListOutputCollector output = new ListOutputCollector();
+    DummyContext context = new DummyContext();
     try {
-      reducer.reduce(dummyURL, values.iterator(), output, new DummyReporter());
+      reducer.reduce(dummyURL, (Iterable)values, context);
     } catch (IOException e) {
       LOG.error(StringUtils.stringifyException(e));
     }
-    return output.getValues();
+    return context.getValues();
   }
 
   /**

@@ -26,7 +26,12 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.SequenceFile;
 import org.apache.hadoop.io.SequenceFile.Reader.Option;
 import org.apache.hadoop.io.Text;
-import org.apache.hadoop.mapred.*;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.lib.input.SequenceFileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.MapFileOutputFormat;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.nutch.crawl.CrawlDBTestUtil.URLCrawlDatum;
 import org.apache.nutch.util.NutchJob;
 import org.junit.After;
@@ -91,20 +96,20 @@ public class TestCrawlDbFilter {
     conf.setBoolean(CrawlDbFilter.URL_NORMALIZING, true);
     conf.setBoolean(CrawlDbFilter.URL_FILTERING, false);
     conf.setInt("urlnormalizer.loop.count", 2);
-    JobConf job = new NutchJob(conf);
+    Job job = NutchJob.getJobInstance(conf);
     job.setJobName("Test CrawlDbFilter");
     Path current = new Path(dbDir, "current");
-    if (FileSystem.get(job).exists(current)) {
+    if (FileSystem.get(conf).exists(current)) {
       FileInputFormat.addInputPath(job, current);
     }
-    job.setInputFormat(SequenceFileInputFormat.class);
+    job.setInputFormatClass(SequenceFileInputFormat.class);
     job.setMapperClass(CrawlDbFilter.class);
     job.setReducerClass(CrawlDbReducer.class);
     FileOutputFormat.setOutputPath(job, newCrawlDb);
-    job.setOutputFormat(MapFileOutputFormat.class);
+    job.setOutputFormatClass(MapFileOutputFormat.class);
     job.setOutputKeyClass(Text.class);
     job.setOutputValueClass(CrawlDatum.class);
-    JobClient.runJob(job);
+    job.waitForCompletion(true);
 
     Path fetchlist = new Path(new Path(newCrawlDb, "part-00000"), "data");
 

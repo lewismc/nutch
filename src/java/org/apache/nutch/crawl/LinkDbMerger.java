@@ -134,7 +134,7 @@ public class LinkDbMerger extends Configured implements Tool {
   }
 
   public static Job createMergeJob(Configuration config, Path linkDb,
-      boolean normalize, boolean filter) {
+      boolean normalize, boolean filter) throws IOException {
     Path newLinkDb = new Path(linkDb,
         "merge-" + Integer.toString(new Random().nextInt(Integer.MAX_VALUE)));
 

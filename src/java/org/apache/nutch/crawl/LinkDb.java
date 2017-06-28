@@ -253,7 +253,7 @@ public class LinkDb extends NutchTool implements Tool {
   }
 
   private static Job createJob(Configuration config, Path linkDb,
-      boolean normalize, boolean filter) {
+      boolean normalize, boolean filter) throws IOException {
     Path newLinkDb = new Path(linkDb,
         Integer.toString(new Random().nextInt(Integer.MAX_VALUE)));
 

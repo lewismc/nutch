@@ -20,7 +20,7 @@ package org.apache.nutch.indexwriter.elastic;
 import java.io.IOException;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.mapred.JobConf;
+import org.apache.hadoop.mapreduce.Job;
 import org.apache.nutch.indexer.NutchDocument;
 import org.apache.nutch.util.NutchConfiguration;
 import org.elasticsearch.action.Action;
@@ -131,7 +131,7 @@ public class TestElasticIndexWriter {
   public void testBulkMaxDocs() throws IOException {
     int numDocs = 10;
     conf.setInt(ElasticConstants.MAX_BULK_DOCS, numDocs);
-    JobConf job = new JobConf(conf);
+    Job job = Job.getinstance(conf);
 
     testIndexWriter.setConf(conf);
     testIndexWriter.open(job, "name");
@@ -166,7 +166,7 @@ public class TestElasticIndexWriter {
     int numDocs = testMaxBulkLength / (key.length() + value.length());
 
     conf.setInt(ElasticConstants.MAX_BULK_LENGTH, testMaxBulkLength);
-    JobConf job = new JobConf(conf);
+    Job job = Job.getInstance(conf);
 
     testIndexWriter.setConf(conf);
     testIndexWriter.open(job, "name");
@@ -194,7 +194,7 @@ public class TestElasticIndexWriter {
     int numDocs = 10;
     conf.setInt(ElasticConstants.MAX_BULK_DOCS, numDocs);
 
-    JobConf job = new JobConf(conf);
+    Job job = Job.getinstance(conf);
 
     testIndexWriter.setConf(conf);
     testIndexWriter.open(job, "name");
