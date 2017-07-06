@@ -197,7 +197,7 @@ public class ContinuousCrawlTestUtil extends TestCase {
 
     long now = System.currentTimeMillis();
 
-    CrawlDbUpdateUtil<CrawlDbReducer> updateDb = new CrawlDbUpdateUtil<CrawlDbReducer>(
+    CrawlDbUpdateUtil updateDb = new CrawlDbUpdateUtil(
         new CrawlDbReducer(), configuration);
 
     /* start with a db_unfetched */
