@@ -34,9 +34,11 @@ import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.Reducer.Context;
 import org.apache.hadoop.mapreduce.OutputCommitter;
+import org.apache.hadoop.mapreduce.TaskInputOutputContext;
 import org.apache.hadoop.util.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.apache.hadoop.mapred.JobConf;
 
 /**
  * Utility to test transitions of {@link CrawlDatum} states during an update of
@@ -44,16 +46,16 @@ import org.slf4j.LoggerFactory;
  * {@link CrawlDbReducer#reduce(Text, Iterator, OutputCollector, Reporter)} with
  * the old CrawlDatum (db status) and the new one (fetch status)
  */
-public class CrawlDbUpdateUtil<T extends Reducer<Text, CrawlDatum, Text, CrawlDatum>> {
+public class CrawlDbUpdateUtil {
 
   private static final Logger LOG = LoggerFactory
       .getLogger(MethodHandles.lookup().lookupClass());
 
-  private T reducer;
+  private CrawlDbReducer reducer;
 
   public static Text dummyURL = new Text("http://nutch.apache.org/");
 
-  protected CrawlDbUpdateUtil(T red, Configuration conf) {
+  protected CrawlDbUpdateUtil(CrawlDbReducer red, Configuration conf) {
     reducer = red;
     reducer.configure(Job.getInstance(conf));
   }
@@ -63,7 +65,7 @@ public class CrawlDbUpdateUtil<T extends Reducer<Text, CrawlDatum, Text, CrawlDa
 
     private List<CrawlDatum> values = new ArrayList<CrawlDatum>();
 
-    public void write(Text key, CrawlDatum value) throws IOException {
+    public void write(Text key, CrawlDatum value) throws IOException, InterruptedException {
       values.add(value);
     }
 
@@ -121,7 +123,7 @@ public class CrawlDbUpdateUtil<T extends Reducer<Text, CrawlDatum, Text, CrawlDa
     Collections.shuffle(values); // sorting of values should have no influence
     DummyContext context = new DummyContext();
     try {
-      reducer.reduce(dummyURL, (Iterable)values, context);
+      reducer.reduce(dummyURL, (Iterator)values, context);
     } catch (IOException e) {
       LOG.error(StringUtils.stringifyException(e));
     }

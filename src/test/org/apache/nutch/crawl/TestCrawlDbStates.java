@@ -97,7 +97,7 @@ public class TestCrawlDbStates {
   public void testCrawlDbStateTransitionMatrix() {
     LOG.info("Test CrawlDatum state transitions");
     Configuration conf = CrawlDBTestUtil.createConfiguration();
-    CrawlDbUpdateUtil<CrawlDbReducer> updateDb = new CrawlDbUpdateUtil<CrawlDbReducer>(
+    CrawlDbUpdateUtil updateDb = new CrawlDbUpdateUtil(
         new CrawlDbReducer(), conf);
     int retryMax = conf.getInt("db.fetch.retry.max", 3);
     for (String sched : schedules) {
