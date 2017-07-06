@@ -177,7 +177,7 @@ public class FreeGenerator extends Configured implements Tool {
     long start = System.currentTimeMillis();
     LOG.info("FreeGenerator: starting at " + sdf.format(start));
 
-    Job job = NutchJob.getJobInstance(getConf());
+    Job job = NutchJob.getInstance(getConf());
     Configuration conf = job.getConfiguration();
     conf.setBoolean(FILTER_KEY, filter);
     conf.setBoolean(NORMALIZE_KEY, normalize);

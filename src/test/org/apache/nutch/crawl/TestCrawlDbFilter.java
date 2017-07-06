@@ -29,7 +29,6 @@ import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.lib.input.SequenceFileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.MapFileOutputFormat;
-import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.nutch.crawl.CrawlDBTestUtil.URLCrawlDatum;
@@ -96,7 +95,7 @@ public class TestCrawlDbFilter {
     conf.setBoolean(CrawlDbFilter.URL_NORMALIZING, true);
     conf.setBoolean(CrawlDbFilter.URL_FILTERING, false);
     conf.setInt("urlnormalizer.loop.count", 2);
-    Job job = NutchJob.getJobInstance(conf);
+    Job job = NutchJob.getInstance(conf);
     job.setJobName("Test CrawlDbFilter");
     Path current = new Path(dbDir, "current");
     if (FileSystem.get(conf).exists(current)) {

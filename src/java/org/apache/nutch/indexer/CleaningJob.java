@@ -148,7 +148,7 @@ public class CleaningJob implements Tool {
     long start = System.currentTimeMillis();
     LOG.info("CleaningJob: starting at " + sdf.format(start));
 
-    Job job = NutchJob.getJobInstance(getConf());
+    Job job = NutchJob.getInstance(getConf());
     Configuration conf = job.getConfiguration();
 
     FileInputFormat.addInputPath(job, new Path(crawldb, CrawlDb.CURRENT_NAME));

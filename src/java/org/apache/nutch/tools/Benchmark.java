@@ -195,7 +195,7 @@ public class Benchmark extends Configured implements Tool {
     conf.setInt(Generator.GENERATOR_MAX_COUNT, maxPerHost);
     conf.set(Generator.GENERATOR_COUNT_MODE,
         Generator.GENERATOR_COUNT_VALUE_HOST);
-    Job job = NutchJob.getJobInstance(getConf());
+    Job job = NutchJob.getInstance(getConf());
     FileSystem fs = FileSystem.get(conf);
     Path dir = new Path(getConf().get("hadoop.tmp.dir"), "bench-"
         + System.currentTimeMillis());

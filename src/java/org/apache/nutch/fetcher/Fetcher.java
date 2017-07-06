@@ -478,7 +478,7 @@ public class Fetcher extends NutchTool implements Tool {
           Integer.toString(totalOutlinksToFollow));
     }
 
-    Job job = NutchJob.getJobInstance(getConf());
+    Job job = NutchJob.getInstance(getConf());
     job.setJobName("fetch " + segment);
     Configuration conf = job.getConfiguration();
 

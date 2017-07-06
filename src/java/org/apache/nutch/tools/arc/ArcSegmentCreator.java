@@ -375,7 +375,7 @@ public class ArcSegmentCreator extends Configured implements Tool {
       LOG.info("ArcSegmentCreator: arc files dir: " + arcFiles);
     }
 
-    Job job = NutchJob.getJobInstance(getConf());
+    Job job = NutchJob.getInstance(getConf());
     Configuration conf = job.getConfiguration();
     job.setJobName("ArcSegmentCreator " + arcFiles);
     String segName = generateSegmentName();

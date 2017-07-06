@@ -257,7 +257,7 @@ public class LinkDb extends NutchTool implements Tool {
     Path newLinkDb = new Path(linkDb,
         Integer.toString(new Random().nextInt(Integer.MAX_VALUE)));
 
-    Job job = NutchJob.getJobInstance(config);
+    Job job = NutchJob.getInstance(config);
     Configuration conf = job.getConfiguration();
     job.setJobName("linkdb " + linkDb);
 

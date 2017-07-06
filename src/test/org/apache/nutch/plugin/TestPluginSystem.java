@@ -100,10 +100,10 @@ public class TestPluginSystem {
   }
 
   @Test
-  public void testRepositoryCache() {
+  public void testRepositoryCache() throws IOException {
     Configuration config = NutchConfiguration.create();
     PluginRepository repo = PluginRepository.get(config);
-    Job job = NutchJob.getJobInstance(config);
+    Job job = NutchJob.getInstance(config);
     config = job.getConfiguration();
     PluginRepository repo1 = PluginRepository.get(conf);
     Assert.assertTrue(repo == repo1);
@@ -112,7 +112,7 @@ public class TestPluginSystem {
     config.addResource("nutch-default.xml");
     config.addResource("nutch-site.xml");
     repo = PluginRepository.get(config);
-    job = NutchJob.getJobInstance(config);
+    job = NutchJob.getInstance(config);
     config = job.getConfiguration();
     repo1 = PluginRepository.get(conf);
     Assert.assertTrue(repo1 != repo);

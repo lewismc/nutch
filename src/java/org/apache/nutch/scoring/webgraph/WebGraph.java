@@ -539,7 +539,7 @@ public class WebGraph extends Configured implements Tool {
 
     Path tempOutlinkDb = new Path(outlinkDb + "-"
         + Integer.toString(new Random().nextInt(Integer.MAX_VALUE)));
-    Job outlinkJob = NutchJob.getJobInstance(conf);
+    Job outlinkJob = NutchJob.getInstance(conf);
     outlinkJob.setJobName("Outlinkdb: " + outlinkDb);
 
     boolean deleteGone = conf.getBoolean("link.delete.gone", false);
@@ -615,7 +615,7 @@ public class WebGraph extends Configured implements Tool {
     Path tempInlinkDb = new Path(inlinkDb + "-"
         + Integer.toString(new Random().nextInt(Integer.MAX_VALUE)));
 
-    Job inlinkJob = NutchJob.getJobInstance(conf);
+    Job inlinkJob = NutchJob.getInstance(conf);
     inlinkJob.setJobName("Inlinkdb " + inlinkDb);
     LOG.info("InlinkDb: adding input: " + outlinkDb);
     FileInputFormat.addInputPath(inlinkJob, outlinkDb);
@@ -655,7 +655,7 @@ public class WebGraph extends Configured implements Tool {
     Path tempNodeDb = new Path(nodeDb + "-"
         + Integer.toString(new Random().nextInt(Integer.MAX_VALUE)));
 
-    Job nodeJob = NutchJob.getJobInstance(conf);
+    Job nodeJob = NutchJob.getInstance(conf);
     nodeJob.setJobName("NodeDb " + nodeDb);
     LOG.info("NodeDb: adding input: " + outlinkDb);
     LOG.info("NodeDb: adding input: " + inlinkDb);

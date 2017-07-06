@@ -17,6 +17,7 @@
 
 package org.apache.nutch.crawl;
 
+import java.io.IOException;
 import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -27,7 +28,6 @@ import junit.framework.TestCase;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.Text;
-import org.apache.hadoop.mapreduce.Job;
 import org.apache.nutch.crawl.CrawlDbUpdateUtil;
 import org.apache.nutch.protocol.Content;
 import org.apache.nutch.util.TimingUtil;
@@ -45,8 +45,7 @@ public class ContinuousCrawlTestUtil extends TestCase {
 
   protected static Text dummyURL = new Text("http://nutch.apache.org/");
 
-  protected static Configuration defaultConfig = CrawlDBTestUtil
-      .createConfiguration();
+  protected static Configuration defaultConfig = CrawlDBTestUtil.createConfiguration();
 
   protected long interval = FetchSchedule.SECONDS_PER_DAY * 1000; // (default)
                                                                   // launch
@@ -192,12 +191,13 @@ public class ContinuousCrawlTestUtil extends TestCase {
    *          correct, but stop after max. number of errors
    * 
    * @return false if a check of CrawlDatum failed, true otherwise
+   * @throws IOException 
    */
-  protected boolean run(int maxErrors) {
+  protected boolean run(int maxErrors) throws IOException {
 
     long now = System.currentTimeMillis();
 
-    CrawlDbUpdateUtil updateDb = new CrawlDbUpdateUtil(
+    CrawlDbUpdateUtil<CrawlDbReducer> updateDb = new CrawlDbUpdateUtil<CrawlDbReducer>(
         new CrawlDbReducer(), configuration);
 
     /* start with a db_unfetched */

@@ -169,7 +169,7 @@ public class TestIndexerMapReduce {
     values.add(new NutchWritable(parseData));
     values.add(new NutchWritable(content));
     reduceDriver = ReduceDriver.newReduceDriver(reducer);
-    reduceDriver.setConfiguration(configuration);
+    reduceDriver.getConfiguration().addResource(configuration);
     reduceDriver.withInput(testUrlText, values);
     List<Pair<Text, NutchIndexAction>> reduceResult;
     NutchDocument doc = null;

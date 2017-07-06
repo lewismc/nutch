@@ -17,6 +17,7 @@
 
 package org.apache.nutch.crawl;
 
+import java.io.IOException;
 import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.Date;
@@ -24,7 +25,6 @@ import java.util.Iterator;
 import java.util.List;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.util.StringUtils;
 
 import org.apache.nutch.crawl.CrawlDatum;
@@ -97,8 +97,13 @@ public class TestCrawlDbStates {
   public void testCrawlDbStateTransitionMatrix() {
     LOG.info("Test CrawlDatum state transitions");
     Configuration conf = CrawlDBTestUtil.createConfiguration();
-    CrawlDbUpdateUtil updateDb = new CrawlDbUpdateUtil(
-        new CrawlDbReducer(), conf);
+    CrawlDbUpdateUtil updateDb = null;
+    try {
+      updateDb = new CrawlDbUpdateUtil(
+          new CrawlDbReducer(), conf);
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
     int retryMax = conf.getInt("db.fetch.retry.max", 3);
     for (String sched : schedules) {
       LOG.info("Testing state transitions with " + sched);
@@ -274,8 +279,12 @@ public class TestCrawlDbStates {
       LOG.info(desc);
       conf.set("db.fetch.schedule.class", "org.apache.nutch.crawl." + sched);
       ContinuousCrawlTestUtil crawlUtil = new CrawlTestFetchNotModified(conf);
-      if (!crawlUtil.run(20)) {
-        fail("failed: " + desc);
+      try {
+        if (!crawlUtil.run(20)) {
+          fail("failed: " + desc);
+        }
+      } catch (IOException e) {
+        e.printStackTrace();
       }
     }
     // test not modified detected by HTTP 304
@@ -285,8 +294,12 @@ public class TestCrawlDbStates {
       conf.set("db.fetch.schedule.class", "org.apache.nutch.crawl." + sched);
       ContinuousCrawlTestUtil crawlUtil = new CrawlTestFetchNotModifiedHttp304(
           conf);
-      if (!crawlUtil.run(20)) {
-        fail("failed: " + desc);
+      try {
+        if (!crawlUtil.run(20)) {
+          fail("failed: " + desc);
+        }
+      } catch (IOException e) {
+        e.printStackTrace();
       }
     }
   }
@@ -466,8 +479,12 @@ public class TestCrawlDbStates {
     LOG.info("NUTCH-1245: test long running continuous crawl");
     ContinuousCrawlTestUtil crawlUtil = new ContinuousCrawlTestUtil(
         STATUS_FETCH_GONE, STATUS_DB_GONE);
-    if (!crawlUtil.run(20)) {
-      fail("fetch_gone did not result in a db_gone (NUTCH-1245)");
+    try {
+      if (!crawlUtil.run(20)) {
+        fail("fetch_gone did not result in a db_gone (NUTCH-1245)");
+      }
+    } catch (IOException e) {
+      e.printStackTrace();
     }
   }
 
@@ -486,8 +503,12 @@ public class TestCrawlDbStates {
     conf.setInt("db.fetch.interval.default", 3 + (int) (fetchIntervalMax * 1.5));
     ContinuousCrawlTestUtil crawlUtil = new ContinuousCrawlTestUtil(conf,
         STATUS_FETCH_GONE, STATUS_DB_GONE);
-    if (!crawlUtil.run(0)) {
-      fail("fetch_gone did not result in a db_gone (NUTCH-1245)");
+    try {
+      if (!crawlUtil.run(0)) {
+        fail("fetch_gone did not result in a db_gone (NUTCH-1245)");
+      }
+    } catch (IOException e) {
+      e.printStackTrace();
     }
   }
 
@@ -507,8 +528,12 @@ public class TestCrawlDbStates {
       LOG.info("Testing reset signature with " + sched);
       conf.set("db.fetch.schedule.class", "org.apache.nutch.crawl." + sched);
       ContinuousCrawlTestUtil crawlUtil = new CrawlTestSignatureReset(conf);
-      if (!crawlUtil.run(20)) {
-        fail("failed: signature not reset");
+      try {
+        if (!crawlUtil.run(20)) {
+          fail("failed: signature not reset");
+        }
+      } catch (IOException e) {
+        e.printStackTrace();
       }
     }
   }

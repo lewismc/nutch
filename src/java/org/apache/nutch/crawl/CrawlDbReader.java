@@ -375,7 +375,7 @@ public class CrawlDbReader extends Configured implements Closeable, Tool {
           throws IOException, InterruptedException, ClassNotFoundException{
 	  Path tmpFolder = new Path(crawlDb, "stat_tmp" + System.currentTimeMillis());
 
-	  Job job = NutchJob.getJobInstance(config);
+	  Job job = NutchJob.getInstance(config);
           config = job.getConfiguration();
 	  job.setJobName("stats " + crawlDb);
 	  config.setBoolean("db.reader.stats.sort", sort);
@@ -527,7 +527,7 @@ public class CrawlDbReader extends Configured implements Closeable, Tool {
 
     Path outFolder = new Path(output);
 
-    Job job = NutchJob.getJobInstance(config);
+    Job job = NutchJob.getInstance(config);
     job.setJobName("dump " + crawlDb);
 
     FileInputFormat.addInputPath(job, new Path(crawlDb, CrawlDb.CURRENT_NAME));
@@ -643,7 +643,7 @@ public class CrawlDbReader extends Configured implements Closeable, Tool {
         + "/readdb-topN-temp-"
         + Integer.toString(new Random().nextInt(Integer.MAX_VALUE)));
 
-    Job job = NutchJob.getJobInstance(config);
+    Job job = NutchJob.getInstance(config);
     job.setJobName("topN prepare " + crawlDb);
     FileInputFormat.addInputPath(job, new Path(crawlDb, CrawlDb.CURRENT_NAME));
     job.setInputFormatClass(SequenceFileInputFormat.class);
@@ -667,7 +667,7 @@ public class CrawlDbReader extends Configured implements Closeable, Tool {
     if (LOG.isInfoEnabled()) {
       LOG.info("CrawlDb topN: collecting topN scores.");
     }
-    job = NutchJob.getJobInstance(config);
+    job = NutchJob.getInstance(config);
     job.setJobName("topN collect " + crawlDb);
     job.getConfiguration().setLong("db.reader.topn", topN);
 
@@ -732,7 +732,7 @@ public class CrawlDbReader extends Configured implements Closeable, Tool {
     }
     String param = null;
     String crawlDb = args[0];
-    Job job = NutchJob.getJobInstance(getConf());
+    Job job = NutchJob.getInstance(getConf());
     Configuration config = job.getConfiguration();
     for (int i = 1; i < args.length; i++) {
       if (args[i].equals("-stats")) {

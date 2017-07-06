@@ -1,5 +1,6 @@
 package org.apache.nutch.crawl;
 
+import java.io.IOException;
 import java.lang.invoke.MethodHandles;
 
 import static org.apache.nutch.crawl.CrawlDatum.*;
@@ -27,8 +28,12 @@ public class TODOTestCrawlDbStates extends TestCrawlDbStates {
     LOG.info("NUTCH-578: test long running continuous crawl with fetch_retry");
     ContinuousCrawlTestUtil crawlUtil = new ContinuousCrawlTestFetchRetry();
     // keep going for long, to "provoke" a retry counter overflow
-    if (!crawlUtil.run(150)) {
-      fail("fetch_retry did not result in a db_gone if retry counter > maxRetries (NUTCH-578)");
+    try {
+      if (!crawlUtil.run(150)) {
+        fail("fetch_retry did not result in a db_gone if retry counter > maxRetries (NUTCH-578)");
+      }
+    } catch (IOException e) {
+      e.printStackTrace();
     }
   }
 
@@ -106,8 +111,12 @@ public class TODOTestCrawlDbStates extends TestCrawlDbStates {
     ContinuousCrawlTestUtil crawlUtil = new CrawlTestFetchScheduleNotModifiedFetchTime(
         conf);
     crawlUtil.setInterval(FetchSchedule.SECONDS_PER_DAY / 3);
-    if (!crawlUtil.run(100)) {
-      fail("failed: sync_delta calculation with AdaptiveFetchSchedule");
+    try {
+      if (!crawlUtil.run(100)) {
+        fail("failed: sync_delta calculation with AdaptiveFetchSchedule");
+      }
+    } catch (IOException e) {
+      e.printStackTrace();
     }
   }
 

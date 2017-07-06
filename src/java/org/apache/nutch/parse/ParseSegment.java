@@ -230,7 +230,7 @@ public class ParseSegment extends NutchTool implements Tool {
       LOG.info("ParseSegment: segment: " + segment);
     }
 
-    Job job = NutchJob.getJobInstance(getConf());
+    Job job = NutchJob.getInstance(getConf());
     job.setJobName("parse " + segment);
 
     Configuration conf = job.getConfiguration();

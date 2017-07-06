@@ -156,7 +156,7 @@ public class SegmentReader extends Configured implements Tool {
   }
 
   private Configuration createJobConf() throws IOException {
-    Job job = NutchJob.getJobInstance(getConf());
+    Job job = NutchJob.getInstance(getConf());
     Configuration conf = job.getConfiguration();
     conf.setBoolean("segment.reader.co", this.co);
     conf.setBoolean("segment.reader.fe", this.fe);

@@ -320,9 +320,11 @@ public class TestGenerator {
    *          Configuration to use
    * @return path to generated segment
    * @throws IOException
+   * @throws InterruptedException 
+   * @throws ClassNotFoundException 
    */
   private Path generateFetchlist(int numResults, Configuration config,
-      boolean filter) throws IOException {
+      boolean filter) throws IOException, ClassNotFoundException, InterruptedException {
     // generate segment
     Generator g = new Generator(config);
     Path[] generatedSegment = g.generate(dbDir, segmentsDir, -1, numResults,

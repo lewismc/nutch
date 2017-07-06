@@ -91,7 +91,7 @@ public class LinkRank extends Configured implements Tool {
     // configure the counter job
     Path numLinksPath = new Path(webGraphDb, NUM_NODES);
     Path nodeDb = new Path(webGraphDb, WebGraph.NODE_DIR);
-    Job counter = NutchJob.getJobInstance(getConf());
+    Job counter = NutchJob.getInstance(getConf());
     Configuration conf = counter.getConfiguration();
     counter.setJobName("LinkRank Counter");
     FileInputFormat.addInputPath(counter, nodeDb);
@@ -158,7 +158,7 @@ public class LinkRank extends Configured implements Tool {
      InterruptedException, ClassNotFoundException {
 
     // configure the initializer
-    Job initializer = NutchJob.getJobInstance(getConf());
+    Job initializer = NutchJob.getInstance(getConf());
     Configuration conf = initializer.getConfiguration();
     initializer.setJobName("LinkAnalysis Initializer");
     FileInputFormat.addInputPath(initializer, nodeDb);
@@ -202,7 +202,7 @@ public class LinkRank extends Configured implements Tool {
       throws IOException, InterruptedException, ClassNotFoundException {
 
     // configure the inverter
-    Job inverter = NutchJob.getJobInstance(getConf());
+    Job inverter = NutchJob.getInstance(getConf());
     Configuration conf = inverter.getConfiguration();
     inverter.setJobName("LinkAnalysis Inverter");
     FileInputFormat.addInputPath(inverter, nodeDb);
@@ -257,7 +257,7 @@ public class LinkRank extends Configured implements Tool {
       int iteration, int numIterations, float rankOne) 
       throws IOException, InterruptedException, ClassNotFoundException {
 
-    Job analyzer = NutchJob.getJobInstance(getConf());
+    Job analyzer = NutchJob.getInstance(getConf());
     Configuration conf = analyzer.getConfiguration();
     conf.set("link.analyze.iteration", String.valueOf(iteration + 1));
     analyzer.setJobName("LinkAnalysis Analyzer, iteration " + (iteration + 1)

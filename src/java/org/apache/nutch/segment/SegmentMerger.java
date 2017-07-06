@@ -623,7 +623,7 @@ public class SegmentMerger extends Configured implements Tool{
       LOG.info("Merging " + segs.length + " segments to " + out + "/"
           + segmentName);
     }
-    Job job = NutchJob.getJobInstance(getConf());
+    Job job = NutchJob.getInstance(getConf());
     Configuration conf = job.getConfiguration();
     job.setJobName("mergesegs " + out + "/" + segmentName);
     conf.setBoolean("segment.merger.filter", filter);

@@ -25,13 +25,13 @@ import org.apache.hadoop.mapreduce.Job;
 /** A {@link Job} for Nutch jobs. */
 public class NutchJob extends Job {
 
-  public NutchJob() throws IOException {
-  
+  @SuppressWarnings("deprecation")
+  public NutchJob(Configuration conf, String jobName) throws IOException {
+    super(conf, jobName);
   }
 
-  public static NutchJob getJobInstance(Configuration conf) throws IOException{
-    NutchJob job = (NutchJob)Job.getInstance(conf);
-    return job;
+  public static NutchJob getInstance(Configuration conf) throws IOException {
+    return (NutchJob) Job.getInstance(conf);
   } 
 
 }
