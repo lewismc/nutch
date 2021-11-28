@@ -38,6 +38,23 @@
     <Console name="STDOUT" target="SYSTEM_OUT">
       <PatternLayout pattern="%d %p %c{1.} [%t] %m%n" />
     </Console>
+
+    <!-- Start Splunk config -->
+    <Socket name="socket" host="localhost" port="8088">
+      <PatternLayout pattern="%p: %m%n" charset="UTF-8"/>
+    </Socket>
+         
+    <SplunkHttp name="http"
+              url="http://localhost:8088/services/collector/event"
+              token="abcd1234"
+              source="Nutch 1.19-SNAPSHOT"
+              sourcetype="log4j"
+              batch_size_count="1"
+              disableCertificateValidation="true">
+      <PatternLayout pattern="%m"/>
+    </SplunkHttp>
+    <!-- End Splunk config -->
+
   </Appenders>
   <Loggers>
     <Root level="INFO" additivity="false">
@@ -47,5 +64,14 @@
     <Logger name="org.apache.hadoop" level="WARN" additivity="false">
       <Appender-ref ref="RollingFile" level="WARN" />
     </Logger>
+
+    <!-- Start Splunk loggers -->
+    <Logger name="splunk.logger" level="INFO">
+      <AppenderRef ref="socket"/>
+    </Logger>
+    <Logger name="splunk.log4j" level="INFO">
+      <AppenderRef ref="http"/>
+    </Logger>
+    <!-- End Splunk loggers -->
   </Loggers>
 </Configuration>
