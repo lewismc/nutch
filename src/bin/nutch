@@ -320,7 +320,7 @@ fi
 EXEC_CALL=(hadoop jar "$NUTCH_JOB")
 
 if $local; then
- EXEC_CALL=("$JAVA" $JAVA_HEAP_MAX "${NUTCH_OPTS[@]}" -classpath "$CLASSPATH")
+ EXEC_CALL=("$JAVA" -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=8888 $JAVA_HEAP_MAX "${NUTCH_OPTS[@]}" -classpath "$CLASSPATH")
 else
  # check that hadoop can be found on the path
  if [ $(which hadoop | wc -l ) -eq 0 ]; then

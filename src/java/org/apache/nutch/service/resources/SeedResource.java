@@ -16,7 +16,6 @@
  */
 package org.apache.nutch.service.resources;
 
-import java.io.OutputStream;
 import java.lang.invoke.MethodHandles;
 import java.util.Collection;
 import java.util.Map;
@@ -32,10 +31,12 @@ import javax.ws.rs.core.Response.Status;
 
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.nutch.service.NutchServer;
 import org.apache.nutch.service.model.request.SeedList;
 import org.apache.nutch.service.model.request.SeedUrl;
+import org.apache.shiro.authz.annotation.RequiresAuthentication;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,6 +52,7 @@ public class SeedResource extends AbstractResource {
   @GET
   @Path("/")
   @Produces(MediaType.APPLICATION_JSON)
+  @RequiresAuthentication
   public Response getSeedLists() {
     Map<String, SeedList> seeds = NutchServer.getInstance().getSeedManager().getSeeds();
     if(seeds!=null) {
@@ -70,6 +72,7 @@ public class SeedResource extends AbstractResource {
   @Path("/create")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.TEXT_PLAIN)
+  @RequiresAuthentication
   public Response createSeedFile(SeedList seedList) {
     try {
     if (seedList == null) {
@@ -100,7 +103,8 @@ public class SeedResource extends AbstractResource {
     }
     String filename = seedFilePath + System.getProperty("file.separator") + "urls";
     org.apache.hadoop.fs.Path seedPath = new org.apache.hadoop.fs.Path(filename);
-    OutputStream os = fs.create(seedPath);
+    @SuppressWarnings("resource")
+    FSDataOutputStream os = fs.create(seedPath);
     if (CollectionUtils.isNotEmpty(seedUrls)) {
       for (SeedUrl seedUrl : seedUrls) {
         os.write(seedUrl.getUrl().getBytes());

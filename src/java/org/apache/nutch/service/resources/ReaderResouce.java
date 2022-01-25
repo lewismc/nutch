@@ -34,10 +34,12 @@ import org.apache.nutch.service.impl.LinkReader;
 import org.apache.nutch.service.impl.NodeReader;
 import org.apache.nutch.service.impl.SequenceReader;
 import org.apache.nutch.service.model.request.ReaderConfig;
+import org.apache.shiro.authz.annotation.RequiresAuthentication;
 
 /**
  * The Reader endpoint enables a user to read sequence files, 
- * nodes and links from the Nutch webgraph.
+ * nodes and links from the Nutch
+ * {@link org.apache.nutch.scoring.webgraph.WebGraph}.
  * @author Sujen Shah
  *
  */
@@ -57,6 +59,7 @@ public class ReaderResouce {
   @POST
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
+  @RequiresAuthentication
   public Response seqRead(ReaderConfig readerConf, 
       @DefaultValue("-1")@QueryParam("nrows") int nrows, 
       @DefaultValue("-1")@QueryParam("start") int start, 
@@ -74,6 +77,7 @@ public class ReaderResouce {
   @Path("/link")
   @GET
   @Produces(MediaType.APPLICATION_JSON)
+  @RequiresAuthentication
   public Response linkRead() {
     HashMap<String, String> schema = new HashMap<>();
     schema.put("key_url","string");
@@ -98,6 +102,7 @@ public class ReaderResouce {
   @POST
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
+  @RequiresAuthentication
   public Response linkRead(ReaderConfig readerConf, 
       @DefaultValue("-1")@QueryParam("nrows") int nrows, 
       @DefaultValue("-1")@QueryParam("start") int start, 
@@ -115,6 +120,7 @@ public class ReaderResouce {
   @Path("/node")
   @GET
   @Produces(MediaType.APPLICATION_JSON)
+  @RequiresAuthentication
   public Response nodeRead() {
     HashMap<String, String> schema = new HashMap<>();
     schema.put("key_url","string");
@@ -140,6 +146,7 @@ public class ReaderResouce {
   @POST
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
+  @RequiresAuthentication
   public Response nodeRead(ReaderConfig readerConf, 
       @DefaultValue("-1")@QueryParam("nrows") int nrows, 
       @DefaultValue("-1")@QueryParam("start") int start, 
@@ -151,7 +158,7 @@ public class ReaderResouce {
   }
 
 
-  private Response performRead(NutchReader reader, String path, 
+  private static Response performRead(NutchReader reader, String path, 
       int nrows, int start, int end, boolean count) {
     Object result;
     try{

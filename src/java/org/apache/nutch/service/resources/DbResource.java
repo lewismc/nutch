@@ -37,6 +37,7 @@ import org.apache.nutch.fetcher.FetchNode;
 import org.apache.nutch.fetcher.FetchNodeDb;
 import org.apache.nutch.service.model.request.DbQuery;
 import org.apache.nutch.service.model.response.FetchNodeDbInfo;
+import org.apache.shiro.authz.annotation.RequiresAuthentication;
 
 @Path(value = "/db")
 public class DbResource extends AbstractResource {
@@ -44,6 +45,7 @@ public class DbResource extends AbstractResource {
   @POST
   @Path(value = "/crawldb")
   @Consumes(MediaType.APPLICATION_JSON)
+  @RequiresAuthentication
   public Response readdb(DbQuery dbQuery){
     if(dbQuery == null)
       return Response.status(Status.BAD_REQUEST).build();
@@ -75,6 +77,7 @@ public class DbResource extends AbstractResource {
 
   @GET
   @Path(value="/fetchdb")
+  @RequiresAuthentication
   public List<FetchNodeDbInfo> fetchDb(@DefaultValue("0")@QueryParam("to")int to, @DefaultValue("0")@QueryParam("from")int from){
     List<FetchNodeDbInfo> listOfFetchedNodes = new ArrayList<>();
     Map<Integer, FetchNode> fetchNodedbMap = FetchNodeDb.getInstance().getFetchNodeDb();
@@ -97,8 +100,9 @@ public class DbResource extends AbstractResource {
 
     return listOfFetchedNodes;
   }
-  @SuppressWarnings("resource")
-  private Response crawlDbStats(Configuration conf, Map<String, String> args, String crawlId){
+
+  private static Response crawlDbStats(Configuration conf, Map<String, String> args, String crawlId){
+    @SuppressWarnings("resource")
     CrawlDbReader dbr = new CrawlDbReader();
     try{
       return Response.ok(dbr.query(args, conf, "stats", crawlId)).build();
@@ -109,7 +113,7 @@ public class DbResource extends AbstractResource {
   }
 
   @Produces(MediaType.APPLICATION_OCTET_STREAM)
-  private Response crawlDbDump(Configuration conf, Map<String, String> args, String crawlId){
+  private static Response crawlDbDump(Configuration conf, Map<String, String> args, String crawlId){
     @SuppressWarnings("resource")
     CrawlDbReader dbr = new CrawlDbReader();
     try{
@@ -121,7 +125,7 @@ public class DbResource extends AbstractResource {
   }
 
   @Produces(MediaType.APPLICATION_OCTET_STREAM)
-  private Response crawlDbTopN(Configuration conf, Map<String, String> args, String crawlId) {
+  private static Response crawlDbTopN(Configuration conf, Map<String, String> args, String crawlId) {
     @SuppressWarnings("resource")
     CrawlDbReader dbr = new CrawlDbReader();
     try{
@@ -132,7 +136,7 @@ public class DbResource extends AbstractResource {
     }		
   }
 
-  private Response crawlDbUrl(Configuration conf, Map<String, String> args, String crawlId){
+  private static Response crawlDbUrl(Configuration conf, Map<String, String> args, String crawlId){
     @SuppressWarnings("resource")
     CrawlDbReader dbr = new CrawlDbReader();
     try{

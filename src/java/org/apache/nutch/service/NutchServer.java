@@ -23,15 +23,13 @@ import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 
-import com.fasterxml.jackson.jaxrs.json.JacksonJaxbJsonProvider;
-
+import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.OptionBuilder;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.commons.cli.PosixParser;
-import org.apache.commons.cli.CommandLine;
 import org.apache.cxf.binding.BindingFactoryManager;
 import org.apache.cxf.jaxrs.JAXRSBindingFactory;
 import org.apache.cxf.jaxrs.JAXRSServerFactoryBean;
@@ -41,8 +39,8 @@ import org.apache.nutch.fetcher.FetchNodeDb;
 import org.apache.nutch.service.impl.ConfManagerImpl;
 import org.apache.nutch.service.impl.JobFactory;
 import org.apache.nutch.service.impl.JobManagerImpl;
-import org.apache.nutch.service.impl.SeedManagerImpl;
 import org.apache.nutch.service.impl.NutchServerPoolExecutor;
+import org.apache.nutch.service.impl.SeedManagerImpl;
 import org.apache.nutch.service.model.response.JobInfo;
 import org.apache.nutch.service.model.response.JobInfo.State;
 import org.apache.nutch.service.resources.AdminResource;
@@ -52,9 +50,15 @@ import org.apache.nutch.service.resources.JobResource;
 import org.apache.nutch.service.resources.ReaderResouce;
 import org.apache.nutch.service.resources.SeedResource;
 import org.apache.nutch.service.resources.ServicesResource;
+import org.apache.shiro.SecurityUtils;
+import org.apache.shiro.env.BasicIniEnvironment;
+import org.apache.shiro.env.Environment;
+import org.apache.shiro.mgt.SecurityManager;
+import org.apache.shiro.web.jaxrs.ShiroFeature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.fasterxml.jackson.jaxrs.json.JacksonJaxbJsonProvider;
 import com.google.common.collect.Queues;
 
 public class NutchServer {
@@ -79,6 +83,7 @@ public class NutchServer {
   private JobManager jobManager;
   private SeedManager seedManager;
   private JAXRSServerFactoryBean sf; 
+  private SecurityManager securityManager;
 
   private static FetchNodeDb fetchNodeDb;
 
@@ -89,22 +94,26 @@ public class NutchServer {
   }
 
   private NutchServer() {
-    configManager = new ConfManagerImpl();
-    seedManager = new SeedManagerImpl();
+    this.configManager = new ConfManagerImpl();
+    this.seedManager = new SeedManagerImpl();
     BlockingQueue<Runnable> runnables = Queues.newArrayBlockingQueue(JOB_CAPACITY);
     NutchServerPoolExecutor executor = new NutchServerPoolExecutor(10, JOB_CAPACITY, 1, TimeUnit.HOURS, runnables);
-    jobManager = new JobManagerImpl(new JobFactory(), configManager, executor);
+    this.jobManager = new JobManagerImpl(new JobFactory(), this.configManager, executor);
     fetchNodeDb = FetchNodeDb.getInstance();
 
-    sf = new JAXRSServerFactoryBean();
-    BindingFactoryManager manager = sf.getBus().getExtension(BindingFactoryManager.class);
+    //Apache Shiro security see https://issues.apache.org/jira/browse/NUTCH-2925 
+    Environment env = new BasicIniEnvironment("classpath:shiro.ini");
+    SecurityManager securityManager = env.getSecurityManager(); 
+    SecurityUtils.setSecurityManager(securityManager);
+    
+    this.sf = new JAXRSServerFactoryBean();
+    BindingFactoryManager manager = this.sf.getBus().getExtension(BindingFactoryManager.class);
     JAXRSBindingFactory factory = new JAXRSBindingFactory();
-    factory.setBus(sf.getBus());
+    factory.setBus(this.sf.getBus());
     manager.registerBindingFactory(JAXRSBindingFactory.JAXRS_BINDING_ID, factory);
-    sf.setResourceClasses(getClasses());
-    sf.setResourceProviders(getResourceProviders());
-    sf.setProvider(new JacksonJaxbJsonProvider());
-
+    this.sf.setResourceClasses(getClasses());
+    this.sf.setResourceProviders(getResourceProviders());
+    this.sf.setProviders(getProviders());
   }
 
   public static NutchServer getInstance() {
@@ -116,30 +125,37 @@ public class NutchServer {
   }
 
   private void start() {
-    LOG.info("Starting NutchServer on {}:{}  ...", host, port);
+    LOG.info("Starting NutchServer on {}:{} ...", host, port);
     try{
       String address = "http://" + host + ":" + port;
-      sf.setAddress(address);
-      sf.create();
+      this.sf.setAddress(address);
+      this.sf.create();
     }catch(Exception e){
       throw new IllegalStateException("Server could not be started", e);
     }
 
-    started = System.currentTimeMillis();
-    running = true;
-    LOG.info("Started Nutch Server on {}:{} at {}", new Object[] {host, port, started});
+    this.started = System.currentTimeMillis();
+    this.running = true;
+    LOG.info("Started Nutch Server on {}:{} at {}", new Object[] {host, port, this.started});
   }
 
-  private List<Class<?>> getClasses() {
+  private static List<Class<?>> getClasses() {
     List<Class<?>> resources = new ArrayList<>();
-    resources.add(JobResource.class);
+    resources.add(AdminResource.class);
     resources.add(ConfigResource.class);
     resources.add(DbResource.class);
-    resources.add(AdminResource.class);
-    resources.add(SeedResource.class);
+    resources.add(JobResource.class);
     resources.add(ReaderResouce.class);
+    resources.add(SeedResource.class);
     resources.add(ServicesResource.class);
     return resources;
+  }
+
+  private static List<Object> getProviders() {
+    List<Object> providers = new ArrayList<>();
+    providers.add(new JacksonJaxbJsonProvider());
+    providers.add(new ShiroFeature());
+    return providers;
   }
 
   private List<ResourceProvider> getResourceProviders() {
@@ -149,15 +165,15 @@ public class NutchServer {
   }
 
   public ConfManager getConfManager() {
-    return configManager;
+    return this.configManager;
   }
 
   public JobManager getJobManager() {
-    return jobManager;
+    return this.jobManager;
   }
   
   public SeedManager getSeedManager() {
-    return seedManager;
+    return this.seedManager;
   }
 
   public FetchNodeDb getFetchNodeDb(){
@@ -165,11 +181,11 @@ public class NutchServer {
   }
 
   public boolean isRunning(){
-    return running;
+    return this.running;
   }
 
   public long getStarted(){
-    return started;
+    return this.started;
   }
 
   public static void main(String[] args) throws ParseException {
@@ -231,4 +247,9 @@ public class NutchServer {
   public void stop() {
     System.exit(0);
   }
+
+  public SecurityManager getSecurityManager() {
+    return this.securityManager;
+  }
+
 }

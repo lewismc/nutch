@@ -27,6 +27,9 @@ import org.apache.nutch.service.JobManager;
 import org.apache.nutch.service.NutchServer;
 
 @Produces(MediaType.APPLICATION_JSON)
+/**
+ * Each Nutch JAXRS resource should extend this Class.
+ */
 public abstract class AbstractResource {
 
   protected JobManager jobManager;
@@ -34,9 +37,9 @@ public abstract class AbstractResource {
   protected NutchServer server;
 
   public AbstractResource() {
-    server = NutchServer.getInstance();
-    configManager = NutchServer.getInstance().getConfManager();
-    jobManager = NutchServer.getInstance().getJobManager();
+    this.server = NutchServer.getInstance();
+    this.configManager = NutchServer.getInstance().getConfManager();
+    this.jobManager = NutchServer.getInstance().getJobManager();
   }
 
   protected void throwBadRequestException(String message) {

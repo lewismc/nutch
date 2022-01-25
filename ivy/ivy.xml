@@ -114,7 +114,7 @@
 		<dependency org="org.mortbay.jetty" name="jetty-client" rev="6.1.26" conf="test->default" />
 
 		<!-- web app dependencies -->
-		<dependency org="org.mortbay.jetty" name="jetty" rev="6.1.26" />
+		<!--dependency org="org.mortbay.jetty" name="jetty" rev="6.1.26" /-->
 
 		<dependency org="org.apache.commons" name="commons-collections4" rev="4.1" conf="*->default" />
 
@@ -128,6 +128,12 @@
 		<dependency org="org.apache.httpcomponents" name="httpclient" rev="4.5.5" />
 
 		<dependency org="de.vandermeer" name="asciitable" rev="0.3.2" />
+
+		<!-- REST API security dependencies -->
+		<!--dependency org="io.buji" name="buji-pac4j" rev="6.1.0" conf="*->default" />
+		<dependency org="org.pac4j" name="pac4j-ldap" rev="5.3.0" conf="*->default" /-->
+		<dependency org="org.apache.shiro" name="shiro-core" rev="1.8.0" conf="*->default" />
+		<dependency org="org.apache.shiro" name="shiro-jaxrs" rev="1.8.0" conf="*->default" />
 
 		<!--global exclusion -->
 		<exclude module="jmxtools" />

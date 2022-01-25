@@ -29,9 +29,12 @@ import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+
 import org.apache.nutch.service.model.request.NutchConfig;
-import com.fasterxml.jackson.jaxrs.annotation.JacksonFeatures;
+import org.apache.shiro.authz.annotation.RequiresAuthentication;
+
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.jaxrs.annotation.JacksonFeatures;
 
 @Path("/config")
 public class ConfigResource extends AbstractResource{
@@ -44,9 +47,10 @@ public class ConfigResource extends AbstractResource{
    */
   @GET
   @Path("/")
-	@JacksonFeatures(serializationEnable =  { SerializationFeature.INDENT_OUTPUT })
+  @JacksonFeatures(serializationEnable =  { SerializationFeature.INDENT_OUTPUT })
+  @RequiresAuthentication
   public Set<String> getConfigs() {
-    return configManager.list();
+    return this.configManager.list();
   }
 
   /** 
@@ -56,9 +60,10 @@ public class ConfigResource extends AbstractResource{
    */
   @GET
   @Path("/{configId}")
-	@JacksonFeatures(serializationEnable =  { SerializationFeature.INDENT_OUTPUT })
+  @JacksonFeatures(serializationEnable =  { SerializationFeature.INDENT_OUTPUT })
+  @RequiresAuthentication
   public Map<String, String> getConfig(@PathParam("configId") String configId) {
-    return configManager.getAsMap(configId);
+    return this.configManager.getAsMap(configId);
   }
 
   /**
@@ -70,10 +75,11 @@ public class ConfigResource extends AbstractResource{
   @GET
   @Path("/{configId}/{propertyId}")
   @Produces(MediaType.TEXT_PLAIN)
-	@JacksonFeatures(serializationEnable =  { SerializationFeature.INDENT_OUTPUT })
+  @JacksonFeatures(serializationEnable =  { SerializationFeature.INDENT_OUTPUT })
+  @RequiresAuthentication
   public String getProperty(@PathParam("configId") String configId,
       @PathParam("propertyId") String propertyId) {
-    return configManager.getAsMap(configId).get(propertyId);
+    return this.configManager.getAsMap(configId).get(propertyId);
   }
 
   /**
@@ -82,8 +88,9 @@ public class ConfigResource extends AbstractResource{
    */
   @DELETE
   @Path("/{configId}")
+  @RequiresAuthentication
   public void deleteConfig(@PathParam("configId") String configId) {
-    configManager.delete(configId);
+    this.configManager.delete(configId);
   }
 
   /**
@@ -95,13 +102,14 @@ public class ConfigResource extends AbstractResource{
   @Path("/create")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.TEXT_PLAIN)
+  @RequiresAuthentication
   public Response createConfig(NutchConfig newConfig) {
     if (newConfig == null) {
       return Response.status(400)
           .entity("Nutch configuration cannot be empty!").build();
     }
     try{
-      configManager.create(newConfig);
+      this.configManager.create(newConfig);
     }catch(Exception e){
       return Response.status(400)
       .entity(e.getMessage()).build();
@@ -120,10 +128,11 @@ public class ConfigResource extends AbstractResource{
   @PUT
   @Path("/{configId}/{propertyId}")
   @Consumes(MediaType.TEXT_PLAIN)
+  @RequiresAuthentication
   public Response updateProperty(@PathParam("configId")String confId, 
       @PathParam("propertyId")String propertyKey, String value) {
     try{
-    configManager.setProperty(confId, propertyKey, value);
+    this.configManager.setProperty(confId, propertyKey, value);
     }catch(Exception e) {
       return Response.status(400).entity(e.getMessage()).build();
     }

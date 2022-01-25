@@ -34,6 +34,7 @@ import org.apache.nutch.service.impl.ServiceWorker;
 import org.apache.nutch.service.model.request.ServiceConfig;
 import org.apache.nutch.service.model.response.ServiceInfo;
 import org.apache.nutch.tools.CommonCrawlDataDumper;
+import org.apache.shiro.authz.annotation.RequiresAuthentication;
 
 /**
  * The services resource defines an endpoint to enable the user to carry out
@@ -46,6 +47,7 @@ public class ServicesResource {
 
   @GET
   @Path("/commoncrawldump/{crawlId}")
+  @RequiresAuthentication
   public Response listDumpPaths(@PathParam("crawlId") String crawlId) {
     File dumpFilePath = new File(crawlId + File.separator + "dump/");
     File dumpFileList[] = dumpFilePath.listFiles();
@@ -62,6 +64,7 @@ public class ServicesResource {
 
   @POST
   @Path("/commoncrawldump")
+  @RequiresAuthentication
   public Response commoncrawlDump(ServiceConfig serviceConfig) {
     String crawlId = serviceConfig.getCrawlId();
     String outputDir = crawlId + File.separator + "dump" + File.separator

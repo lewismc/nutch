@@ -41,7 +41,7 @@ public class ConfManagerImpl implements ConfManager {
   private AtomicInteger newConfigId = new AtomicInteger();
 
   public ConfManagerImpl() {
-    configurations.put(ConfigResource.DEFAULT, NutchConfiguration.create());
+    this.configurations.put(ConfigResource.DEFAULT, NutchConfiguration.create());
   }
 
   /**
@@ -49,13 +49,13 @@ public class ConfManagerImpl implements ConfManager {
    */
   public Configuration get(String confId) {
     if (confId == null) {
-      return configurations.get(ConfigResource.DEFAULT);
+      return this.configurations.get(ConfigResource.DEFAULT);
     }
-    return configurations.get(confId);
+    return this.configurations.get(confId);
   }
 
   public Map<String, String> getAsMap(String confId) {
-    Configuration configuration = configurations.get(confId);
+    Configuration configuration = this.configurations.get(confId);
     if (configuration == null) {
       return Collections.emptyMap();
     }
@@ -73,15 +73,15 @@ public class ConfManagerImpl implements ConfManager {
    * Sets the given property in the configuration associated with the confId
    */
   public void setProperty(String confId, String propName, String propValue) {
-    if (!configurations.containsKey(confId)) {
+    if (!this.configurations.containsKey(confId)) {
       throw new IllegalArgumentException("Unknown configId '" + confId + "'");
     }
-    Configuration conf = configurations.get(confId);
+    Configuration conf = this.configurations.get(confId);
     conf.set(propName, propValue);
   }
 
   public Set<String> list() {
-    return configurations.keySet();
+    return this.configurations.keySet();
   }
 
   /**
@@ -91,7 +91,7 @@ public class ConfManagerImpl implements ConfManager {
    */
   public String create(NutchConfig nutchConfig) {
     if (StringUtils.isBlank(nutchConfig.getConfigId())) {
-      nutchConfig.setConfigId(String.valueOf(newConfigId.incrementAndGet()));
+      nutchConfig.setConfigId(String.valueOf(this.newConfigId.incrementAndGet()));
     }
 
     if (!canCreate(nutchConfig)) {
@@ -104,14 +104,14 @@ public class ConfManagerImpl implements ConfManager {
 
 
   public void delete(String confId) {
-    configurations.remove(confId);
+    this.configurations.remove(confId);
   }
 
   private boolean canCreate(NutchConfig nutchConfig) {
     if (nutchConfig.isForce()) {
       return true;
     }
-    if (!configurations.containsKey(nutchConfig.getConfigId())) {
+    if (!this.configurations.containsKey(nutchConfig.getConfigId())) {
       return true;
     }
     return false;
@@ -119,7 +119,7 @@ public class ConfManagerImpl implements ConfManager {
 
   private void createHadoopConfig(NutchConfig nutchConfig) {
     Configuration conf = NutchConfiguration.create();
-    configurations.put(nutchConfig.getConfigId(), conf);
+    this.configurations.put(nutchConfig.getConfigId(), conf);
 
     if (MapUtils.isEmpty(nutchConfig.getParams())) {
       return;

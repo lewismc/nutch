@@ -35,35 +35,36 @@ public class NutchServerPoolExecutor extends ThreadPoolExecutor{
   private Queue<JobWorker> workersHistory;
   private Queue<JobWorker> runningWorkers;
 
-  public NutchServerPoolExecutor(int corePoolSize, int maxPoolSize, long keepAliveTime, TimeUnit unit, BlockingQueue<Runnable> workQueue){
+  public NutchServerPoolExecutor(int corePoolSize, int maxPoolSize,
+          long keepAliveTime, TimeUnit unit, BlockingQueue<Runnable> workQueue){
     super(corePoolSize, maxPoolSize, keepAliveTime, unit, workQueue);
-    workersHistory = Queues.newArrayBlockingQueue(maxPoolSize);
-    runningWorkers = Queues.newArrayBlockingQueue(maxPoolSize);
+    this.workersHistory = Queues.newArrayBlockingQueue(maxPoolSize);
+    this.runningWorkers = Queues.newArrayBlockingQueue(maxPoolSize);
   }
 
   @Override
   protected void beforeExecute(Thread thread, Runnable runnable) {
     super.beforeExecute(thread, runnable);
-    synchronized (runningWorkers) {
-      runningWorkers.offer(((JobWorker) runnable));
+    synchronized (this.runningWorkers) {
+      this.runningWorkers.offer(((JobWorker) runnable));
     }
   }
 
   @Override
   protected void afterExecute(Runnable runnable, Throwable throwable) {
     super.afterExecute(runnable, throwable);
-    synchronized (runningWorkers) {
-      runningWorkers.remove((JobWorker) runnable);
+    synchronized (this.runningWorkers) {
+      this.runningWorkers.remove((JobWorker) runnable);
     }
     JobWorker worker = ((JobWorker) runnable);
     addStatusToHistory(worker);
   }
 
   private void addStatusToHistory(JobWorker worker) {
-    synchronized (workersHistory) {
-      if (!workersHistory.offer(worker)) {
-        workersHistory.poll();
-        workersHistory.add(worker);
+    synchronized (this.workersHistory) {
+      if (!this.workersHistory.offer(worker)) {
+        this.workersHistory.poll();
+        this.workersHistory.add(worker);
       }
     }
   }
@@ -74,8 +75,8 @@ public class NutchServerPoolExecutor extends ThreadPoolExecutor{
    * @return a {@link JobWorker} or else null
    */
   public JobWorker findWorker(String jobId) {
-    synchronized (runningWorkers) {
-      for (JobWorker worker : runningWorkers) {
+    synchronized (this.runningWorkers) {
+      for (JobWorker worker : this.runningWorkers) {
         if (StringUtils.equals(worker.getInfo().getId(), jobId)) {
           return worker;
         }
@@ -89,7 +90,7 @@ public class NutchServerPoolExecutor extends ThreadPoolExecutor{
    * @return a {@link Collection} of {@link JobInfo}'s
    */
   public Collection<JobInfo> getJobHistory() {
-    return getJobsInfo(workersHistory);
+    return getJobsInfo(this.workersHistory);
   }
 
   /**
@@ -97,7 +98,7 @@ public class NutchServerPoolExecutor extends ThreadPoolExecutor{
    * @return a {@link Collection} of {@link JobInfo}'s
    */
   public Collection<JobInfo> getJobRunning() {
-    return getJobsInfo(runningWorkers);
+    return getJobsInfo(this.runningWorkers);
   }
 
   /**
@@ -109,7 +110,7 @@ public class NutchServerPoolExecutor extends ThreadPoolExecutor{
     return CollectionUtils.union(getJobRunning(), getJobHistory());
   }
 
-  private Collection<JobInfo> getJobsInfo(Collection<JobWorker> workers) {
+  private static Collection<JobInfo> getJobsInfo(Collection<JobWorker> workers) {
     List<JobInfo> jobsInfo = Lists.newLinkedList();
     for (JobWorker worker : workers) {
       jobsInfo.add(worker.getInfo());

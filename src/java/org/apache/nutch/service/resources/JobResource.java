@@ -26,11 +26,13 @@ import javax.ws.rs.PathParam;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
 
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.jaxrs.annotation.JacksonFeatures;
 import org.apache.nutch.service.model.request.JobConfig;
 import org.apache.nutch.service.model.response.JobInfo;
 import org.apache.nutch.service.model.response.JobInfo.State;
+import org.apache.shiro.authz.annotation.RequiresAuthentication;
+
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.jaxrs.annotation.JacksonFeatures;
 
 @Path(value = "/job")
 public class JobResource extends AbstractResource {
@@ -43,8 +45,9 @@ public class JobResource extends AbstractResource {
   @GET
   @Path(value = "/")
   @JacksonFeatures(serializationEnable =  { SerializationFeature.INDENT_OUTPUT })
+  @RequiresAuthentication
   public Collection<JobInfo> getJobs(@QueryParam("crawlId") String crawlId) {
-    return jobManager.list(crawlId, State.ANY);
+    return this.jobManager.list(crawlId, State.ANY);
   }
 
   /**
@@ -56,9 +59,10 @@ public class JobResource extends AbstractResource {
   @GET
   @Path(value = "/{id}")
   @JacksonFeatures(serializationEnable =  { SerializationFeature.INDENT_OUTPUT })
+  @RequiresAuthentication
   public JobInfo getInfo(@PathParam("id") String id,
       @QueryParam("crawlId") String crawlId) {
-    return jobManager.get(crawlId, id);
+    return this.jobManager.get(crawlId, id);
   }
 
   /**
@@ -69,17 +73,19 @@ public class JobResource extends AbstractResource {
    */
   @GET
   @Path(value = "/{id}/stop")
+  @RequiresAuthentication
   public boolean stop(@PathParam("id") String id,
       @QueryParam("crawlId") String crawlId) {
-    return jobManager.stop(crawlId, id);
+    return this.jobManager.stop(crawlId, id);
   }
 
   
   @GET
   @Path(value = "/{id}/abort")
+  @RequiresAuthentication
   public boolean abort(@PathParam("id") String id,
       @QueryParam("crawlId") String crawlId) {
-    return jobManager.abort(crawlId, id);
+    return this.jobManager.abort(crawlId, id);
   }
 
   /**
@@ -90,10 +96,11 @@ public class JobResource extends AbstractResource {
   @POST
   @Path(value = "/create")
   @Consumes(MediaType.APPLICATION_JSON)
+  @RequiresAuthentication
   public JobInfo create(JobConfig config) {
     if (config == null) {
       throwBadRequestException("Job configuration is required!");
     }   
-    return jobManager.create(config);   
+    return this.jobManager.create(config);   
   }
 }

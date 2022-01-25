@@ -22,18 +22,31 @@ import java.util.Date;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.QueryParam;
+import javax.ws.rs.core.Context;
+import javax.ws.rs.core.Response;
 
 import org.apache.nutch.service.model.response.JobInfo.State;
+import org.apache.shiro.SecurityUtils;
+import org.apache.shiro.authc.AuthenticationInfo;
+import org.apache.shiro.authc.IncorrectCredentialsException;
+import org.apache.shiro.authc.LockedAccountException;
+import org.apache.shiro.authc.UnknownAccountException;
+import org.apache.shiro.authc.UsernamePasswordToken;
+import org.apache.shiro.authz.annotation.RequiresAuthentication;
+import org.apache.shiro.subject.Subject;
+import org.apache.shiro.web.jaxrs.ShiroSecurityContext;
 import org.apache.nutch.service.model.response.NutchServerInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.jaxrs.annotation.JacksonFeatures;
+
 @Path(value="/admin")
-public class AdminResource extends AbstractResource{
+public class AdminResource extends AbstractResource {
 
   private final int DELAY_SEC = 1;
-  private static final Logger LOG = LoggerFactory
-      .getLogger(MethodHandles.lookup().lookupClass());
+  private static final Logger LOG = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
   /**
    * Get the status of the Nutch Server 
@@ -41,13 +54,40 @@ public class AdminResource extends AbstractResource{
    */
   @GET
   @Path(value="/")
-  public NutchServerInfo getServerStatus(){
+  @JacksonFeatures(serializationEnable =  { SerializationFeature.INDENT_OUTPUT })
+  @RequiresAuthentication
+  public Response getServerStatus(@Context ShiroSecurityContext context){
+    String scheme = context.getAuthenticationScheme();
     NutchServerInfo serverInfo = new NutchServerInfo();
-    serverInfo.setConfiguration(configManager.list());
-    serverInfo.setStartDate(new Date(server.getStarted()));
-    serverInfo.setJobs(jobManager.list(null, State.ANY));
-    serverInfo.setRunningJobs(jobManager.list(null, State.RUNNING));    
-    return serverInfo;
+    serverInfo.setConfiguration(this.configManager.list());
+    serverInfo.setStartDate(new Date(this.server.getStarted()));
+    serverInfo.setJobs(this.jobManager.list(null, State.ANY));
+    serverInfo.setRunningJobs(this.jobManager.list(null, State.RUNNING));
+    return Response.ok(serverInfo).build();
+////    SecurityUtils.setSecurityManager(this.server.getSecurityManager());
+////    Subject currentUser = SecurityUtils.getSubject();
+//    // let's login the current user so we can check against roles and permissions:
+//    if (!currentUser.isAuthenticated()) {
+//      UsernamePasswordToken token = new UsernamePasswordToken("lonestarr", "vespa");
+//      AuthenticationInfo authenticationInfo = SecurityUtils.getSecurityManager()
+//              .authenticate(token);
+//      token.setRememberMe(true);
+//      LOG.info(authenticationInfo.toString());
+//      try {
+//        currentUser.login(token);
+//      } catch (UnknownAccountException uae) {
+//        LOG.error("There is no user with username of " + token.getPrincipal());
+//      } catch (IncorrectCredentialsException ice) {
+//        LOG.error("Password for account " + token.getPrincipal() + " was incorrect!");
+//      } catch (LockedAccountException lae) {
+//        LOG.error("The account for username " + token.getPrincipal() + " is locked but access attempts are being made.");
+//      }
+//      // ... catch more exceptions here (maybe custom ones specific to your application?
+//      //catch (AuthenticationException ae) {
+//        //unexpected condition?  error?
+//      //}
+//    }
+//    return null;
   }
 
   /**
@@ -57,24 +97,25 @@ public class AdminResource extends AbstractResource{
    */
   @GET
   @Path(value="/stop")
+  @RequiresAuthentication
   public String stopServer(@QueryParam("force") boolean force){
-    if(!server.canStop(force)){
+    if(!this.server.canStop(force)){
       return "Jobs still running -- Cannot stop server now" ;
     }    
     scheduleServerStop();
-    return "Stopping in server on port " + server.getPort();
+    return "Stopping in server on port " + this.server.getPort();
   }
 
   private void scheduleServerStop() {
-    LOG.info("Shutting down server in {} sec", DELAY_SEC);
+    LOG.info("Shutting down server in {} sec", this.DELAY_SEC);
     Thread thread = new Thread() {
       public void run() {
         try {
-          Thread.sleep(DELAY_SEC*1000);
+          Thread.sleep(AdminResource.this.DELAY_SEC*1000);
         } catch (InterruptedException e) {
           Thread.currentThread().interrupt();
         }
-        server.stop();
+        AdminResource.this.server.stop();
         LOG.info("Service stopped.");
       }
     };
