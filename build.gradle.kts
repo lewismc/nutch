@@ -268,6 +268,12 @@ tasks.clean {
     dependsOn("clean-build","clean-lib","clean-dist","clean-runtime")
 }
 
+tasks.register("clean-eclipse") {
+    group = "gradleBuildSystem"
+    description = "Cleans the eclipse project)"
+    dependsOn("clean-build", "clean-lib","clean-dist")
+}
+
 tasks.register("clean-lib") {
     group = "gradleBuildSystem"
     description = "Clean the project libraries directories (dependencies: default + test)"
