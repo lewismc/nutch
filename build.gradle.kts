@@ -19,6 +19,7 @@ plugins {
     application
     base
     java
+    eclipse
     `maven-publish`
     `java-library`
 }
@@ -271,7 +272,7 @@ tasks.clean {
 tasks.register("clean-eclipse") {
     group = "gradleBuildSystem"
     description = "Cleans the eclipse project)"
-    dependsOn("clean-build", "clean-lib","clean-dist")
+    dependsOn("clean-build", "clean-lib","clean-dist", "cleanEclipse")
 }
 
 tasks.register("clean-lib") {
@@ -582,4 +583,10 @@ tasks.register<Zip>("zip-src") {
             include("src/bin/*")
         }
     )
+}
+
+tasks.register("gradle-eclipse") {
+    group = "gradleBuildSystem"
+    description = "create eclipse project files"
+    dependsOn("clean-eclipse", "init", "resolve-test", "job", "eclipse")
 }
