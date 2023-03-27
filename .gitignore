@@ -16,7 +16,7 @@ naivebayes-model
 .naivebayes-model.crc
 .gitconfig
 # Eclipse configuration files
-.classpath
+.classpath*
 .project
 .settings/
 .externalToolBuilders/
