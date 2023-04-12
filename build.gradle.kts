@@ -320,8 +320,8 @@ tasks.register<GradleBuild>("compile-plugins") {
     description = "Compile plugins only"
     dependsOn("init-nutch","resolve-default")
     //TODO Once plugins are finished, uncomment the following lines:
-    // dir = file("src/plugin")
-    // tasks = listOf("deploy")
+    dir = file("src/plugin")
+    tasks = listOf("deploy")
 }
 
 tasks.jar {
@@ -583,7 +583,7 @@ tasks.register<Zip>("zip-src") {
 tasks.register("gradle-eclipse") {
     group = "gradleBuildSystem"
     description = "create eclipse project files"
-    dependsOn("cleanEclipse", "init", "resolve-test", "job")
+    dependsOn("cleanEclipse","init", "resolve-test", "job")
 
     eclipse{
         //name = "${project.properties["projname"]}"
@@ -614,144 +614,192 @@ tasks.register("gradle-eclipse") {
             //             }
             //     }
             // }
-        }
-    
-        sourceSets {
-            main {
-                //these 2 do not seem to help
-                output.resourcesDir = file("./build/classes")
-                java.destinationDirectory.set(file("./build/classes"))
+
+
+            //TODO: STILL WORK IN PROGRESS
+            file {
+                //it removes all entries of kind "src" from the classpath. 
+                //This is done to remove any existing source directory entries from the classpath, 
+                //as they will be added back later with custom configurations.
+                beforeMerged { classpath -> classpath.entries.removeAll { it.kind == "src" } }
+        
+                whenMerged { classpath ->
                 
-                //How to get classesDirs working? Requires FileCollection
-                //output.classesDirs = file("build/classes")
-    
-                java.srcDirs("./src/java/")
-                java.srcDirs("./src/plugin/any23/src/java/")
-                java.srcDirs("./src/plugin/creativecommons/src/java/")
-                java.srcDirs("./src/plugin/feed/src/java/")
-                java.srcDirs("./src/plugin/headings/src/java/")
-                java.srcDirs("./src/plugin/exchange-jexl/src/java/")
-                java.srcDirs("./src/plugin/index-anchor/src/java/")
-                java.srcDirs("./src/plugin/index-basic/src/java/")
-                java.srcDirs("./src/plugin/index-geoip/src/java/")
-                java.srcDirs("./src/plugin/index-jexl-filter/src/java/")
-                java.srcDirs("./src/plugin/index-links/src/java/")
-                java.srcDirs("./src/plugin/index-metadata/src/java/")
-                java.srcDirs("./src/plugin/index-more/src/java/")
-                java.srcDirs("./src/plugin/index-replace/src/java/")
-                java.srcDirs("./src/plugin/index-static/src/java/")
-                java.srcDirs("./src/plugin/indexer-cloudsearch/src/java/")
-                java.srcDirs("./src/plugin/indexer-dummy/src/java/")
-                java.srcDirs("./src/plugin/indexer-elastic/src/java/")
-                java.srcDirs("./src/plugin/indexer-kafka/src/java/")
-                java.srcDirs("./src/plugin/indexer-rabbit/src/java/")
-                java.srcDirs("./src/plugin/indexer-solr/src/java/")
-                java.srcDirs("./src/plugin/language-identifier/src/java/")
-                java.srcDirs("./src/plugin/lib-htmlunit/src/java/")
-                java.srcDirs("./src/plugin/lib-http/src/java/")
-                java.srcDirs("./src/plugin/lib-rabbitmq/src/java/")
-                java.srcDirs("./src/plugin/lib-regex-filter/src/java/")
-                java.srcDirs("./src/plugin/lib-selenium/src/java/")
-                java.srcDirs("./src/plugin/microformats-reltag/src/java/")
-                java.srcDirs("./src/plugin/mimetype-filter/src/java/")
-                java.srcDirs("./src/plugin/parse-ext/src/java/")
-                java.srcDirs("./src/plugin/parse-html/src/java/")
-                java.srcDirs("./src/plugin/parse-js/src/java/")
-                java.srcDirs("./src/plugin/parse-metatags/src/java/")
-                java.srcDirs("./src/plugin/parse-tika/src/java/")
-                java.srcDirs("./src/plugin/parse-zip/src/java/")
-                java.srcDirs("./src/plugin/parsefilter-debug/src/java/")
-                java.srcDirs("./src/plugin/parsefilter-naivebayes/src/java/")
-                java.srcDirs("./src/plugin/parsefilter-regex/src/java/")
-                java.srcDirs("./src/plugin/protocol-file/src/java/")
-                java.srcDirs("./src/plugin/protocol-foo/src/java/")
-                java.srcDirs("./src/plugin/protocol-ftp/src/java/")
-                java.srcDirs("./src/plugin/protocol-htmlunit/src/java/")
-                java.srcDirs("./src/plugin/protocol-http/src/java/")
-                java.srcDirs("./src/plugin/protocol-httpclient/src/java/")
-                java.srcDirs("./src/plugin/protocol-interactiveselenium/src/java/")
-                java.srcDirs("./src/plugin/protocol-okhttp/src/java/")
-                java.srcDirs("./src/plugin/scoring-depth/src/java/")
-                java.srcDirs("./src/plugin/scoring-link/src/java/")
-                java.srcDirs("./src/plugin/scoring-opic/src/java/")
-                java.srcDirs("./src/plugin/scoring-similarity/src/java/")
-                java.srcDirs("./src/plugin/scoring-metadata/src/java/")
-                java.srcDirs("./src/plugin/subcollection/src/java/")
-                java.srcDirs("./src/plugin/tld/src/java/")
-                java.srcDirs("./src/plugin/urlfilter-automaton/src/java/")
-                java.srcDirs("./src/plugin/urlfilter-domain/src/java/")
-                java.srcDirs("./src/plugin/urlfilter-domaindenylist/src/java/")
-                java.srcDirs("./src/plugin/urlfilter-fast/src/java/")
-                java.srcDirs("./src/plugin/urlfilter-ignoreexempt/src/java/")
-                java.srcDirs("./src/plugin/urlfilter-prefix/src/java/")
-                java.srcDirs("./src/plugin/urlfilter-regex/src/java/")
-                java.srcDirs("./src/plugin/urlfilter-suffix/src/java/")
-                java.srcDirs("./src/plugin/urlfilter-validator/src/java/")
-                java.srcDirs("./src/plugin/urlmeta/src/java/")
-                java.srcDirs("./src/plugin/urlnormalizer-ajax/src/java/")
-                java.srcDirs("./src/plugin/urlnormalizer-basic/src/java/")
-                java.srcDirs("./src/plugin/urlnormalizer-host/src/java/")
-                java.srcDirs("./src/plugin/urlnormalizer-pass/src/java/")
-                java.srcDirs("./src/plugin/urlnormalizer-protocol/src/java/")
-                java.srcDirs("./src/plugin/urlnormalizer-querystring/src/java/")
-                java.srcDirs("./src/plugin/urlnormalizer-regex/src/java/")
-                java.srcDirs("./src/plugin/urlnormalizer-slash/src/java/")
+                    //Collects Java source and resource directories from all projects that have the Java plugin applied (JavaPlugin).
+                    def projects = allprojects.findAll { prj ->
+                        return prj.plugins.hasPlugin(JavaPlugin)
+                    }
+                    
+                    //Collects JAR files from the compile classpath and test compile classpath of all projects.
+
+                    //Likely will have to change sourceSetNames for our project directory here
+                    Set<String> sourceSetNames = ['main', 'test', "main${eclipseJavaVersion}" as String, "test${eclipseJavaVersion}" as String, 'tools'] as Set
+                    Set<String> sources = []
+                    Set<File> jars = []
+                    projects.each { prj ->
+                        prj.sourceSets.each { sourceSet ->
+                            if (sourceSetNames.contains(sourceSet.name)) {
+                                sources += sourceSet.java.srcDirs.findAll { dir -> dir.exists() }.collect { dir -> relativize(dir) }
+                                sources += sourceSet.resources.srcDirs.findAll { dir -> dir.exists() }.collect { dir -> relativize(dir) }
+                            } 
+                        }
+            
+                        // This is hacky - we take the resolved compile classpath and just
+                        // include JAR files from there. We should probably make it smarter
+                        // by looking at real dependencies. But then: this Eclipse configuration
+                        // doesn't really separate sources anyway so why bother.
+                        jars += prj.configurations.compileClasspath.resolve()
+                        jars += prj.configurations.testCompileClasspath.resolve()
+                    }
+                    //Adds the collected Java source and resource directories to the classpath as SourceFolder entries, excluding any module-info.java files.
+                    classpath.entries += sources.sort().collect { name -> 
+                        def sourceFolder = new SourceFolder(name, "build/eclipse/" + name) 
+                        sourceFolder.setExcludes(["module-info.java"])
+                        return sourceFolder
+                    }
+                    //Adds the collected JAR files to the classpath as LibEntry entries, excluding any JAR files whose names match the pattern lucene-.*\.jar.
+                    classpath.entries += jars.unique().findAll { location -> location.isFile() && !(location.name ==~ /lucene-.*\.jar/) }.collect { location ->
+                        new LibEntry(location.toString())
+                    }
+                }
             }
+        }
+        // sourceSets {
+        //     main {
+        //         //these 2 do not seem to help
+        //         output.resourcesDir = file("./build/classes")
+        //         java.destinationDirectory.set(file("./build/classes"))
+                
+        //         //How to get classesDirs working? Requires FileCollection
+        //         //output.classesDirs = file("build/classes")
     
-            test {
-                java.srcDirs("./src/test/") //need to add output
-                java.srcDirs("./src/plugin/any23/src/test/")
-                java.srcDirs("./src/plugin/creativecommons/src/test/")
-                java.srcDirs("./src/plugin/feed/src/test/")
-                java.srcDirs("./src/plugin/headings/src/test/")
-                java.srcDirs("./src/plugin/index-anchor/src/test/")
-                java.srcDirs("./src/plugin/index-basic/src/test/")
-                java.srcDirs("./src/plugin/index-jexl-filter/src/test/")
-                java.srcDirs("./src/plugin/index-links/src/test/")
-                java.srcDirs("./src/plugin/index-more/src/test/")
-                java.srcDirs("./src/plugin/index-replace/src/test/")
-                java.srcDirs("./src/plugin/index-static/src/test/")
-                java.srcDirs("./src/plugin/indexer-csv/src/java")
-                java.srcDirs("./src/plugin/indexer-csv/src/test")
-                java.srcDirs("./src/plugin/language-identifier/src/test/")
-                java.srcDirs("./src/plugin/lib-http/src/test/")
-                java.srcDirs("./src/plugin/lib-regex-filter/src/test/")
-                java.srcDirs("./src/plugin/mimetype-filter/src/test/")
-                java.srcDirs("./src/plugin/parse-ext/src/test/")
-                java.srcDirs("./src/plugin/parse-html/src/test/")
-                java.srcDirs("./src/plugin/parse-js/src/test/")
-                java.srcDirs("./src/plugin/parse-metatags/src/test/")
-                java.srcDirs("./src/plugin/parse-tika/src/test/")
-                java.srcDirs("./src/plugin/parse-zip/src/test/")
-                java.srcDirs("./src/plugin/parsefilter-regex/src/test/")
-                java.srcDirs("./src/plugin/protocol-file/src/test/")
-                java.srcDirs("./src/plugin/protocol-http/src/test/")
-                java.srcDirs("./src/plugin/protocol-httpclient/src/test/")
-                java.srcDirs("./src/plugin/protocol-okhttp/src/test/")
-                java.srcDirs("./src/plugin/protocol-selenium/src/java")
-                java.srcDirs("./src/plugin/publish-rabbitmq/src/java")
-                java.srcDirs("./src/plugin/scoring-orphan/src/java")
-                java.srcDirs("./src/plugin/scoring-orphan/src/test")
-                java.srcDirs("./src/plugin/scoring-metadata/src/test")
-                java.srcDirs("./src/plugin/subcollection/src/test/")
-                java.srcDirs("./src/plugin/urlfilter-automaton/src/test/")
-                java.srcDirs("./src/plugin/urlfilter-domain/src/test/")
-                java.srcDirs("./src/plugin/urlfilter-domaindenylist/src/test/")
-                java.srcDirs("./src/plugin/urlfilter-fast/src/test/")
-                java.srcDirs("./src/plugin/urlfilter-prefix/src/test/")
-                java.srcDirs("./src/plugin/urlfilter-regex/src/test/")
-                java.srcDirs("./src/plugin/urlfilter-suffix/src/test/")
-                java.srcDirs("./src/plugin/urlfilter-validator/src/test/")
-                java.srcDirs("./src/plugin/urlnormalizer-ajax/src/test/")
-                java.srcDirs("./src/plugin/urlnormalizer-basic/src/test/")
-                java.srcDirs("./src/plugin/urlnormalizer-host/src/test/")
-                java.srcDirs("./src/plugin/urlnormalizer-pass/src/test/")
-                java.srcDirs("./src/plugin/urlnormalizer-protocol/src/test/")
-                java.srcDirs("./src/plugin/urlnormalizer-querystring/src/test/")
-                java.srcDirs("./src/plugin/urlnormalizer-regex/src/test/")
-                java.srcDirs("./src/plugin/urlnormalizer-slash/src/test/")
-            }
-        }     
+        //         java.srcDirs("./src/java/")
+        //         java.srcDirs("./src/plugin/any23/src/java/")
+        //         java.srcDirs("./src/plugin/creativecommons/src/java/")
+        //         java.srcDirs("./src/plugin/feed/src/java/")
+        //         java.srcDirs("./src/plugin/headings/src/java/")
+        //         java.srcDirs("./src/plugin/exchange-jexl/src/java/")
+        //         java.srcDirs("./src/plugin/index-anchor/src/java/")
+        //         java.srcDirs("./src/plugin/index-basic/src/java/")
+        //         java.srcDirs("./src/plugin/index-geoip/src/java/")
+        //         java.srcDirs("./src/plugin/index-jexl-filter/src/java/")
+        //         java.srcDirs("./src/plugin/index-links/src/java/")
+        //         java.srcDirs("./src/plugin/index-metadata/src/java/")
+        //         java.srcDirs("./src/plugin/index-more/src/java/")
+        //         java.srcDirs("./src/plugin/index-replace/src/java/")
+        //         java.srcDirs("./src/plugin/index-static/src/java/")
+        //         java.srcDirs("./src/plugin/indexer-cloudsearch/src/java/")
+        //         java.srcDirs("./src/plugin/indexer-dummy/src/java/")
+        //         java.srcDirs("./src/plugin/indexer-elastic/src/java/")
+        //         java.srcDirs("./src/plugin/indexer-kafka/src/java/")
+        //         java.srcDirs("./src/plugin/indexer-rabbit/src/java/")
+        //         java.srcDirs("./src/plugin/indexer-solr/src/java/")
+        //         java.srcDirs("./src/plugin/language-identifier/src/java/")
+        //         java.srcDirs("./src/plugin/lib-htmlunit/src/java/")
+        //         java.srcDirs("./src/plugin/lib-http/src/java/")
+        //         java.srcDirs("./src/plugin/lib-rabbitmq/src/java/")
+        //         java.srcDirs("./src/plugin/lib-regex-filter/src/java/")
+        //         java.srcDirs("./src/plugin/lib-selenium/src/java/")
+        //         java.srcDirs("./src/plugin/microformats-reltag/src/java/")
+        //         java.srcDirs("./src/plugin/mimetype-filter/src/java/")
+        //         java.srcDirs("./src/plugin/parse-ext/src/java/")
+        //         java.srcDirs("./src/plugin/parse-html/src/java/")
+        //         java.srcDirs("./src/plugin/parse-js/src/java/")
+        //         java.srcDirs("./src/plugin/parse-metatags/src/java/")
+        //         java.srcDirs("./src/plugin/parse-tika/src/java/")
+        //         java.srcDirs("./src/plugin/parse-zip/src/java/")
+        //         java.srcDirs("./src/plugin/parsefilter-debug/src/java/")
+        //         java.srcDirs("./src/plugin/parsefilter-naivebayes/src/java/")
+        //         java.srcDirs("./src/plugin/parsefilter-regex/src/java/")
+        //         java.srcDirs("./src/plugin/protocol-file/src/java/")
+        //         java.srcDirs("./src/plugin/protocol-foo/src/java/")
+        //         java.srcDirs("./src/plugin/protocol-ftp/src/java/")
+        //         java.srcDirs("./src/plugin/protocol-htmlunit/src/java/")
+        //         java.srcDirs("./src/plugin/protocol-http/src/java/")
+        //         java.srcDirs("./src/plugin/protocol-httpclient/src/java/")
+        //         java.srcDirs("./src/plugin/protocol-interactiveselenium/src/java/")
+        //         java.srcDirs("./src/plugin/protocol-okhttp/src/java/")
+        //         java.srcDirs("./src/plugin/scoring-depth/src/java/")
+        //         java.srcDirs("./src/plugin/scoring-link/src/java/")
+        //         java.srcDirs("./src/plugin/scoring-opic/src/java/")
+        //         java.srcDirs("./src/plugin/scoring-similarity/src/java/")
+        //         java.srcDirs("./src/plugin/scoring-metadata/src/java/")
+        //         java.srcDirs("./src/plugin/subcollection/src/java/")
+        //         java.srcDirs("./src/plugin/tld/src/java/")
+        //         java.srcDirs("./src/plugin/urlfilter-automaton/src/java/")
+        //         java.srcDirs("./src/plugin/urlfilter-domain/src/java/")
+        //         java.srcDirs("./src/plugin/urlfilter-domaindenylist/src/java/")
+        //         java.srcDirs("./src/plugin/urlfilter-fast/src/java/")
+        //         java.srcDirs("./src/plugin/urlfilter-ignoreexempt/src/java/")
+        //         java.srcDirs("./src/plugin/urlfilter-prefix/src/java/")
+        //         java.srcDirs("./src/plugin/urlfilter-regex/src/java/")
+        //         java.srcDirs("./src/plugin/urlfilter-suffix/src/java/")
+        //         java.srcDirs("./src/plugin/urlfilter-validator/src/java/")
+        //         java.srcDirs("./src/plugin/urlmeta/src/java/")
+        //         java.srcDirs("./src/plugin/urlnormalizer-ajax/src/java/")
+        //         java.srcDirs("./src/plugin/urlnormalizer-basic/src/java/")
+        //         java.srcDirs("./src/plugin/urlnormalizer-host/src/java/")
+        //         java.srcDirs("./src/plugin/urlnormalizer-pass/src/java/")
+        //         java.srcDirs("./src/plugin/urlnormalizer-protocol/src/java/")
+        //         java.srcDirs("./src/plugin/urlnormalizer-querystring/src/java/")
+        //         java.srcDirs("./src/plugin/urlnormalizer-regex/src/java/")
+        //         java.srcDirs("./src/plugin/urlnormalizer-slash/src/java/")
+        //     }
+    
+        //     test {
+        //         java.srcDirs("./src/test/") //need to add output
+        //         java.srcDirs("./src/plugin/any23/src/test/")
+        //         java.srcDirs("./src/plugin/creativecommons/src/test/")
+        //         java.srcDirs("./src/plugin/feed/src/test/")
+        //         java.srcDirs("./src/plugin/headings/src/test/")
+        //         java.srcDirs("./src/plugin/index-anchor/src/test/")
+        //         java.srcDirs("./src/plugin/index-basic/src/test/")
+        //         java.srcDirs("./src/plugin/index-jexl-filter/src/test/")
+        //         java.srcDirs("./src/plugin/index-links/src/test/")
+        //         java.srcDirs("./src/plugin/index-more/src/test/")
+        //         java.srcDirs("./src/plugin/index-replace/src/test/")
+        //         java.srcDirs("./src/plugin/index-static/src/test/")
+        //         java.srcDirs("./src/plugin/indexer-csv/src/java")
+        //         java.srcDirs("./src/plugin/indexer-csv/src/test")
+        //         java.srcDirs("./src/plugin/language-identifier/src/test/")
+        //         java.srcDirs("./src/plugin/lib-http/src/test/")
+        //         java.srcDirs("./src/plugin/lib-regex-filter/src/test/")
+        //         java.srcDirs("./src/plugin/mimetype-filter/src/test/")
+        //         java.srcDirs("./src/plugin/parse-ext/src/test/")
+        //         java.srcDirs("./src/plugin/parse-html/src/test/")
+        //         java.srcDirs("./src/plugin/parse-js/src/test/")
+        //         java.srcDirs("./src/plugin/parse-metatags/src/test/")
+        //         java.srcDirs("./src/plugin/parse-tika/src/test/")
+        //         java.srcDirs("./src/plugin/parse-zip/src/test/")
+        //         java.srcDirs("./src/plugin/parsefilter-regex/src/test/")
+        //         java.srcDirs("./src/plugin/protocol-file/src/test/")
+        //         java.srcDirs("./src/plugin/protocol-http/src/test/")
+        //         java.srcDirs("./src/plugin/protocol-httpclient/src/test/")
+        //         java.srcDirs("./src/plugin/protocol-okhttp/src/test/")
+        //         java.srcDirs("./src/plugin/protocol-selenium/src/java")
+        //         java.srcDirs("./src/plugin/publish-rabbitmq/src/java")
+        //         java.srcDirs("./src/plugin/scoring-orphan/src/java")
+        //         java.srcDirs("./src/plugin/scoring-orphan/src/test")
+        //         java.srcDirs("./src/plugin/scoring-metadata/src/test")
+        //         java.srcDirs("./src/plugin/subcollection/src/test/")
+        //         java.srcDirs("./src/plugin/urlfilter-automaton/src/test/")
+        //         java.srcDirs("./src/plugin/urlfilter-domain/src/test/")
+        //         java.srcDirs("./src/plugin/urlfilter-domaindenylist/src/test/")
+        //         java.srcDirs("./src/plugin/urlfilter-fast/src/test/")
+        //         java.srcDirs("./src/plugin/urlfilter-prefix/src/test/")
+        //         java.srcDirs("./src/plugin/urlfilter-regex/src/test/")
+        //         java.srcDirs("./src/plugin/urlfilter-suffix/src/test/")
+        //         java.srcDirs("./src/plugin/urlfilter-validator/src/test/")
+        //         java.srcDirs("./src/plugin/urlnormalizer-ajax/src/test/")
+        //         java.srcDirs("./src/plugin/urlnormalizer-basic/src/test/")
+        //         java.srcDirs("./src/plugin/urlnormalizer-host/src/test/")
+        //         java.srcDirs("./src/plugin/urlnormalizer-pass/src/test/")
+        //         java.srcDirs("./src/plugin/urlnormalizer-protocol/src/test/")
+        //         java.srcDirs("./src/plugin/urlnormalizer-querystring/src/test/")
+        //         java.srcDirs("./src/plugin/urlnormalizer-regex/src/test/")
+        //         java.srcDirs("./src/plugin/urlnormalizer-slash/src/test/")
+        //     }
+        // }     
     } 
 }
 
