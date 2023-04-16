@@ -32,6 +32,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.SSLContext;
@@ -51,6 +52,7 @@ import org.slf4j.LoggerFactory;
 
 import okhttp3.Authenticator;
 import okhttp3.Connection;
+import okhttp3.ConnectionPool;
 import okhttp3.Headers;
 import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
@@ -65,7 +67,8 @@ public class OkHttp extends HttpBase {
 
   private final List<String[]> customRequestHeaders = new LinkedList<>();
 
-  private OkHttpClient client;
+  /** clients, each holding a separate connection pool */
+  private OkHttpClient[] clients;
 
   private static final TrustManager[] trustAllCerts = new TrustManager[] {
       new X509TrustManager() {
@@ -87,21 +90,6 @@ public class OkHttp extends HttpBase {
         }
       } };
 
-  private static final SSLContext trustAllSslContext;
-
-  static {
-    try {
-      trustAllSslContext = SSLContext.getInstance("SSL");
-      trustAllSslContext.init(null, trustAllCerts,
-          new java.security.SecureRandom());
-    } catch (Exception e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  private static final SSLSocketFactory trustAllSslSocketFactory = trustAllSslContext
-      .getSocketFactory();
-
   public OkHttp() {
     super(LOG);
   }
@@ -112,7 +100,7 @@ public class OkHttp extends HttpBase {
 
     // protocols in order of preference
     List<okhttp3.Protocol> protocols = new ArrayList<>();
-    if (useHttp2) {
+    if (this.useHttp2) {
       protocols.add(okhttp3.Protocol.HTTP_2);
     }
     protocols.add(okhttp3.Protocol.HTTP_1_1);
@@ -121,13 +109,23 @@ public class OkHttp extends HttpBase {
         .protocols(protocols) //
         .retryOnConnectionFailure(true) //
         .followRedirects(false) //
-        .connectTimeout(timeout, TimeUnit.MILLISECONDS)
-        .writeTimeout(timeout, TimeUnit.MILLISECONDS)
-        .readTimeout(timeout, TimeUnit.MILLISECONDS);
+        .connectTimeout(this.timeout, TimeUnit.MILLISECONDS)
+        .writeTimeout(this.timeout, TimeUnit.MILLISECONDS)
+        .readTimeout(this.timeout, TimeUnit.MILLISECONDS);
 
-    if (!tlsCheckCertificate) {
-      builder.sslSocketFactory(trustAllSslSocketFactory,
-          (X509TrustManager) trustAllCerts[0]);
+    if (!this.tlsCheckCertificate) {
+      try {
+        SSLContext trustAllSslContext = SSLContext.getInstance("TLS");
+        trustAllSslContext.init(null, trustAllCerts, null);
+        SSLSocketFactory trustAllSslSocketFactory = trustAllSslContext
+            .getSocketFactory();
+        builder.sslSocketFactory(trustAllSslSocketFactory,
+            (X509TrustManager) trustAllCerts[0]);
+      } catch (Exception e) {
+        LOG.error(
+            "Failed to disable TLS certificate verification (property http.tls.certificates.check)",
+            e);
+      }
       builder.hostnameVerifier(new HostnameVerifier() {
         @Override
         public boolean verify(String hostname, SSLSession session) {
@@ -136,23 +134,23 @@ public class OkHttp extends HttpBase {
       });
     }
 
-    if (!accept.isEmpty()) {
-      getCustomRequestHeaders().add(new String[] { "Accept", accept });
+    if (!this.accept.isEmpty()) {
+      getCustomRequestHeaders().add(new String[] { "Accept", this.accept });
     }
 
-    if (!acceptLanguage.isEmpty()) {
+    if (!this.acceptLanguage.isEmpty()) {
       getCustomRequestHeaders()
-          .add(new String[] { "Accept-Language", acceptLanguage });
+          .add(new String[] { "Accept-Language", this.acceptLanguage });
     }
 
-    if (!acceptCharset.isEmpty()) {
+    if (!this.acceptCharset.isEmpty()) {
       getCustomRequestHeaders()
-          .add(new String[] { "Accept-Charset", acceptCharset });
+          .add(new String[] { "Accept-Charset", this.acceptCharset });
     }
 
-    if (useProxy) {
-      Proxy proxy = new Proxy(proxyType,
-          new InetSocketAddress(proxyHost, proxyPort));
+    if (this.useProxy) {
+      Proxy proxy = new Proxy(this.proxyType,
+          new InetSocketAddress(this.proxyHost, this.proxyPort));
       String proxyUsername = conf.get("http.proxy.username");
       if (proxyUsername == null) {
         ProxySelector selector = new ProxySelector() {
@@ -172,9 +170,9 @@ public class OkHttp extends HttpBase {
           @Override
           public List<Proxy> select(URI uri) {
             if (useProxy(uri)) {
-              return proxyList;
+              return this.proxyList;
             }
-            return noProxyList;
+            return this.noProxyList;
           }
 
           @Override
@@ -192,7 +190,7 @@ public class OkHttp extends HttpBase {
          * ProxySelector class with proxy auth. If a proxy username is present,
          * the configured proxy will be used for ALL requests.
          */
-        if (proxyException.size() > 0) {
+        if (this.proxyException.size() > 0) {
           LOG.warn(
               "protocol-okhttp does not respect 'http.proxy.exception.list' setting when "
                   + "'http.proxy.username' is set. This is a limitation of the current okhttp3 "
@@ -214,14 +212,86 @@ public class OkHttp extends HttpBase {
       }
     }
 
-    if (storeIPAddress || storeHttpHeaders || storeHttpRequest) {
+    IPFilterRules ipFilterRules = new IPFilterRules(conf);
+    if (!ipFilterRules.isEmpty()) {
+      builder.addNetworkInterceptor(new HTTPFilterIPAddressInterceptor(ipFilterRules));
+    }
+
+    if (this.storeIPAddress || this.storeHttpHeaders || this.storeHttpRequest) {
       builder.addNetworkInterceptor(new HTTPHeadersInterceptor());
     }
 
     // enable support for Brotli compression (Content-Encoding)
     builder.addInterceptor(BrotliInterceptor.INSTANCE);
 
-    client = builder.build();
+    // instantiate connection pool(s), cf.
+    // https://square.github.io/okhttp/3.x/okhttp/okhttp3/ConnectionPool.html
+    int numConnectionPools = 1;
+    Supplier<ConnectionPool> poolSupplier = null;
+    if (conf.get("http.connection.pool.okhttp", "").isEmpty()) {
+      // empty pool configuration: use a single pool of default size
+    } else {
+      int[] poolConfig = {};
+      try {
+        poolConfig = conf.getInts("http.connection.pool.okhttp");
+      } catch (NumberFormatException e) {
+        // will show warning below
+      }
+      if (poolConfig.length == 3 && poolConfig[0] > 0
+          && poolConfig[1] > 0 && poolConfig[2] > 0) {
+        numConnectionPools = poolConfig[0];
+        int size = poolConfig[1];
+        int time = poolConfig[2];
+        poolSupplier = () -> new ConnectionPool(size, time, TimeUnit.SECONDS);
+        LOG.info(
+            "Using {} connection pool{} with max. {} idle connections "
+                + "and {} sec. connection keep-alive time",
+            poolConfig[0], (poolConfig[0] > 1 ? "s" : ""), poolConfig[1],
+            poolConfig[2]);
+      } else {
+        LOG.warn(
+            "Ignoring invalid connection pool configuration 'http.connection.pool.okhttp': '{}'",
+            conf.get("http.connection.pool.okhttp"));
+      }
+    }
+    if (poolSupplier == null) {
+      poolSupplier = ConnectionPool::new;
+      LOG.info("Using single connection pool with default settings");
+    }
+    this.clients = new OkHttpClient[numConnectionPools];
+    for (int i = 0; i < numConnectionPools; i++) {
+      this.clients[i] = builder.connectionPool(poolSupplier.get()).build();
+    }
+  }
+
+  class HTTPFilterIPAddressInterceptor implements Interceptor {
+
+    IPFilterRules rules;
+
+    public HTTPFilterIPAddressInterceptor(IPFilterRules rules) {
+      this.rules = rules;
+    }
+
+    @Override
+    public okhttp3.Response intercept(Interceptor.Chain chain)
+        throws IOException {
+
+      Connection connection = chain.connection();
+      InetAddress address = connection.socket().getInetAddress();
+
+      boolean accept = rules.accept(address);
+
+      Request request = chain.request();
+
+      if (accept) {
+        return chain.proceed(request);
+      }
+
+      LOG.warn("Blocked connection to IP address {}: {}",
+          address.getHostAddress(), request.url());
+      throw new IOException(
+          "Forbidden connection to IP address " + address.getHostAddress());
+    }
   }
 
   class HTTPHeadersInterceptor implements Interceptor {
@@ -241,7 +311,7 @@ public class OkHttp extends HttpBase {
 
       Connection connection = chain.connection();
       String ipAddress = null;
-      if (storeIPAddress) {
+      if (OkHttp.this.storeIPAddress) {
         InetAddress address = connection.socket().getInetAddress();
         ipAddress = address.getHostAddress();
       }
@@ -252,7 +322,7 @@ public class OkHttp extends HttpBase {
       StringBuilder requestverbatim = null;
       StringBuilder responseverbatim = null;
 
-      if (storeHttpRequest) {
+      if (OkHttp.this.storeHttpRequest) {
         requestverbatim = new StringBuilder();
 
         requestverbatim.append(request.method()).append(' ');
@@ -277,7 +347,7 @@ public class OkHttp extends HttpBase {
         requestverbatim.append("\r\n");
       }
 
-      if (storeHttpHeaders) {
+      if (OkHttp.this.storeHttpHeaders) {
         responseverbatim = new StringBuilder();
 
         responseverbatim.append(getNormalizedProtocolName(response.protocol()))
@@ -322,11 +392,22 @@ public class OkHttp extends HttpBase {
   }
 
   protected List<String[]> getCustomRequestHeaders() {
-    return customRequestHeaders;
+    return this.customRequestHeaders;
   }
 
-  protected OkHttpClient getClient() {
-    return client;
+  /**
+   * Distribute hosts over clients by host name
+   * 
+   * @param url
+   *          URL to fetch
+   * @return client responsible to fetch the given URL
+   */
+  protected OkHttpClient getClient(URL url) {
+    if (this.clients.length == 1) {
+      return this.clients[0];
+    }
+    int hash = url.getHost().hashCode();
+    return this.clients[(hash & Integer.MAX_VALUE) % this.clients.length];
   }
 
   @Override

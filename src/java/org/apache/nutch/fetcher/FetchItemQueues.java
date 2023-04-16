@@ -56,6 +56,8 @@ public class FetchItemQueues {
   long minCrawlDelay;
   long timelimit = -1;
   int maxExceptionsPerQueue = -1;
+  long exceptionsPerQueueDelay = -1;
+  boolean feederAlive = true;
   Configuration conf;
 
   public static final String QUEUE_MODE_HOST = "byHost";
@@ -84,6 +86,8 @@ public class FetchItemQueues {
     this.timelimit = conf.getLong("fetcher.timelimit", -1);
     this.maxExceptionsPerQueue = conf.getInt(
         "fetcher.max.exceptions.per.queue", -1);
+    this.exceptionsPerQueueDelay = (long) (conf
+        .getFloat("fetcher.exceptions.per.queue.delay", .0f) * 1000);
 
     int dedupRedirMaxTime = conf.getInt("fetcher.redirect.dedupcache.seconds",
         -1);
@@ -178,11 +182,25 @@ public class FetchItemQueues {
     while (it.hasNext()) {
       FetchItemQueue fiq = it.next().getValue();
 
-      // reap empty queues
+      // reap empty queues which do not hold state required to ensure politeness
       if (fiq.getQueueSize() == 0 && fiq.getInProgressSize() == 0) {
-        it.remove();
+        if (!feederAlive) {
+          // no more fetch items added
+          it.remove();
+        } else if ((maxExceptionsPerQueue > -1 || exceptionsPerQueueDelay > 0)
+            && fiq.exceptionCounter.get() > 0) {
+          // keep queue because the exceptions counter is bound to it
+          // and is required to skip or delay items on this queue
+        } else if (fiq.nextFetchTime.get() > System.currentTimeMillis()) {
+          // keep queue to have it blocked in case new fetch items of this queue
+          // are added by the QueueFeeder
+        } else {
+          // empty queue without state
+          it.remove();
+        }
         continue;
       }
+
       FetchItem fit = fiq.getFetchItem();
       if (fit != null) {
         totalSize.decrementAndGet();
@@ -195,11 +213,19 @@ public class FetchItemQueues {
     return null;
   }
 
+  /**
+   * @return true if the fetcher timelimit is defined and has been exceeded
+   *         ({@code fetcher.timelimit.mins} minutes after fetching started)
+   */
+  public boolean timelimitExceeded() {
+    return timelimit != -1 && System.currentTimeMillis() >= timelimit;
+  }
+
   // called only once the feeder has stopped
   public synchronized int checkTimelimit() {
     int count = 0;
 
-    if (System.currentTimeMillis() >= timelimit && timelimit != -1) {
+    if (timelimitExceeded()) {
       // emptying the queues
       count = emptyQueues();
 
@@ -209,6 +235,7 @@ public class FetchItemQueues {
       if (totalSize.get() != 0 && queues.size() == 0)
         totalSize.set(0);
     }
+
     return count;
   }
 
@@ -220,11 +247,9 @@ public class FetchItemQueues {
       FetchItemQueue fiq = queues.get(id);
       if (fiq.getQueueSize() == 0)
         continue;
-      LOG.info("* queue: " + id + " >> dropping! ");
+      LOG.info("* queue: {} >> dropping!", id);
       int deleted = fiq.emptyQueue();
-      for (int i = 0; i < deleted; i++) {
-        totalSize.decrementAndGet();
-      }
+      totalSize.addAndGet(-deleted);
       count += deleted;
     }
 
@@ -235,32 +260,79 @@ public class FetchItemQueues {
    * Increment the exception counter of a queue in case of an exception e.g.
    * timeout; when higher than a given threshold simply empty the queue.
    * 
-   * @param queueid a queue identifier to locate and check 
+   * The next fetch is delayed if specified by the param {@code delay} or
+   * configured by the property {@code fetcher.exceptions.per.queue.delay}.
+   * 
+   * @param queueid
+   *          a queue identifier to locate and check
+   * @param maxExceptions
+   *          custom-defined number of max. exceptions - if negative the value
+   *          of the property {@code fetcher.max.exceptions.per.queue} is used.
+   * @param delay
+   *          a custom-defined time span in milliseconds to delay the next fetch
+   *          in addition to the delay defined for the given queue. If a
+   *          negative value is passed the delay is chosen by
+   *          {@code fetcher.exceptions.per.queue.delay}
+   * 
    * @return number of purged items
    */
-  public synchronized int checkExceptionThreshold(String queueid) {
+  public synchronized int checkExceptionThreshold(String queueid,
+      int maxExceptions, long delay) {
     FetchItemQueue fiq = queues.get(queueid);
     if (fiq == null) {
       return 0;
     }
     int excCount = fiq.incrementExceptionCounter();
+    if (delay > 0) {
+      fiq.nextFetchTime.getAndAdd(delay);
+      LOG.info("* queue: {} >> delayed next fetch by {} ms", queueid, delay);
+    } else if (exceptionsPerQueueDelay > 0) {
+      /*
+       * Delay the next fetch by a time span growing exponentially with the
+       * number of observed exceptions. This dynamic delay is added to the
+       * constant delay. In order to avoid overflows, the exponential backoff is
+       * capped at 2**31
+       */
+      long exceptionDelay = exceptionsPerQueueDelay;
+      if (excCount > 1) {
+        // double the initial delay with every observed exception
+        exceptionDelay *= 2L << Math.min((excCount - 2), 31);
+      }
+      fiq.nextFetchTime.getAndAdd(exceptionDelay);
+      LOG.info(
+          "* queue: {} >> delayed next fetch by {} ms after {} exceptions in queue",
+          queueid, exceptionDelay, excCount);
+    }
     if (fiq.getQueueSize() == 0) {
       return 0;
     }
-    if (maxExceptionsPerQueue != -1 && excCount >= maxExceptionsPerQueue) {
+    if (maxExceptions!= -1 && excCount >= maxExceptions) {
       // too many exceptions for items in this queue - purge it
       int deleted = fiq.emptyQueue();
-      LOG.info("* queue: " + queueid + " >> removed " + deleted
-          + " URLs from queue because " + excCount + " exceptions occurred");
-      for (int i = 0; i < deleted; i++) {
-        totalSize.decrementAndGet();
-      }
+      LOG.info(
+          "* queue: {} >> removed {} URLs from queue because {} exceptions occurred",
+          queueid, deleted, excCount);
+      totalSize.getAndAdd(-deleted);
       // keep queue IDs to ensure that these queues aren't created and filled
       // again, see addFetchItem(FetchItem)
       queuesMaxExceptions.add(queueid);
       return deleted;
     }
     return 0;
+  }
+
+  /**
+   * Increment the exception counter of a queue in case of an exception e.g.
+   * timeout; when higher than a given threshold simply empty the queue.
+   * 
+   * @see #checkExceptionThreshold(String, int, long)
+   * 
+   * @param queueid
+   *          queue identifier to locate and check
+   * @return number of purged items
+   */
+  public int checkExceptionThreshold(String queueid) {
+    return checkExceptionThreshold(queueid, this.maxExceptionsPerQueue, -1);
   }
 
   /**

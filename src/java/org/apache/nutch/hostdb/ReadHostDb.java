@@ -41,6 +41,7 @@ import org.apache.hadoop.util.StringUtils;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.nutch.util.NutchConfiguration;
+import org.apache.nutch.util.NutchJob;
 import org.apache.nutch.util.TimingUtil;
 import org.apache.nutch.util.SegmentReaderUtil;
 
@@ -110,19 +111,22 @@ public class ReadHostDb extends Configured implements Tool {
         jcontext.set("connectionFailures", datum.getConnectionFailures());
         
         // Set metadata variables
-        for (Map.Entry<Writable, Writable> entry : datum.getMetaData().entrySet()) {
-          Object value = entry.getValue();
-          
-          if (value instanceof FloatWritable) {
-            FloatWritable fvalue = (FloatWritable)value;
-            Text tkey = (Text)entry.getKey();
-            jcontext.set(tkey.toString(), fvalue.get());
-          }
-          
-          if (value instanceof IntWritable) {
-            IntWritable ivalue = (IntWritable)value;
-            Text tkey = (Text)entry.getKey();
-            jcontext.set(tkey.toString(), ivalue.get());
+        if (datum.hasMetaData()) {
+          for (Map.Entry<Writable, Writable> entry : datum.getMetaData()
+              .entrySet()) {
+            Object value = entry.getValue();
+
+            if (value instanceof FloatWritable) {
+              FloatWritable fvalue = (FloatWritable) value;
+              Text tkey = (Text) entry.getKey();
+              jcontext.set(tkey.toString(), fvalue.get());
+            }
+
+            if (value instanceof IntWritable) {
+              IntWritable ivalue = (IntWritable) value;
+              Text tkey = (Text) entry.getKey();
+              jcontext.set(tkey.toString(), ivalue.get());
+            }
           }
         }
         
@@ -197,9 +201,7 @@ public class ReadHostDb extends Configured implements Tool {
     try {
       boolean success = job.waitForCompletion(true);
       if (!success) {
-        String message = "ReadHostDb job did not succeed, job status: "
-            + job.getStatus().getState() + ", reason: "
-            + job.getStatus().getFailureInfo();
+        String message = NutchJob.getJobFailureLogMessage("ReadHostDb", job);
         LOG.error(message);
         // throw exception so that calling routine can exit with error
         throw new RuntimeException(message);

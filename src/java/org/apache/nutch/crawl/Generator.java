@@ -238,10 +238,11 @@ public class Generator extends NutchTool implements Tool {
       LongWritable oldGenTime = (LongWritable) crawlDatum.getMetaData()
           .get(Nutch.WRITABLE_GENERATE_TIME_KEY);
       if (oldGenTime != null) { // awaiting fetch & update
-        if (oldGenTime.get() + genDelay > curTime) // still wait for
+        if (oldGenTime.get() + genDelay > curTime) { // still wait for
           // update
           context.getCounter("Generator", "WAIT_FOR_UPDATE").increment(1);
-        return;
+          return;
+        }
       }
       float sort = 1.0f;
       try {
@@ -310,27 +311,30 @@ public class Generator extends NutchTool implements Tool {
     private SequenceFile.Reader[] hostdbReaders = null;
     private JexlScript maxCountExpr = null;
     private JexlScript fetchDelayExpr = null;
-
-    public void open() {
-      if (conf.get(GENERATOR_HOSTDB) != null) {
-        try {
-          Path path = new Path(conf.get(GENERATOR_HOSTDB), "current");
-          hostdbReaders = SegmentReaderUtil.getReaders(path, conf);
-        } catch (IOException e) {
-          LOG.error("Error reading HostDB because {}", e.getMessage());
-        }
+    private Map<String, HostDatum> hostDatumCache = new HashMap<>();
+    
+    public void readHostDb() throws IOException {
+      if (conf.get(GENERATOR_HOSTDB) == null) {
+        return;
       }
-    }
-
-    public void close() {
-      if (hostdbReaders != null) {
-        try {
-          for (int i = 0; i < hostdbReaders.length; i++) {
-            hostdbReaders[i].close();
+      
+      Path path = new Path(conf.get(GENERATOR_HOSTDB), "current");
+      hostdbReaders = SegmentReaderUtil.getReaders(path, conf);
+      
+      try {
+        Text key = new Text();
+        HostDatum value = new HostDatum();
+        for (int i = 0; i < hostdbReaders.length; i++) {
+          while (hostdbReaders[i].next(key, value)) {
+            hostDatumCache.put(key.toString(), (HostDatum)value.clone());
           }
-        } catch (IOException e) {
-          LOG.error("Error closing HostDB because {}", e.getMessage());
         }
+      } catch (Exception e) {
+        throw new IOException(e);
+      }
+      
+      for (int i = 0; i < hostdbReaders.length; i++) {
+        hostdbReaders[i].close();
       }
     }
 
@@ -347,26 +351,28 @@ public class Generator extends NutchTool implements Tool {
       context.set("conf", conf);
 
       // Set metadata variables
-      for (Map.Entry<Writable, Writable> entry : datum.getMetaData()
-          .entrySet()) {
-        Object value = entry.getValue();
+      if (datum.hasMetaData()) {
+        for (Map.Entry<Writable, Writable> entry : datum.getMetaData()
+            .entrySet()) {
+          Object value = entry.getValue();
 
-        if (value instanceof FloatWritable) {
-          FloatWritable fvalue = (FloatWritable) value;
-          Text tkey = (Text) entry.getKey();
-          context.set(tkey.toString(), fvalue.get());
-        }
+          if (value instanceof FloatWritable) {
+            FloatWritable fvalue = (FloatWritable) value;
+            Text tkey = (Text) entry.getKey();
+            context.set(tkey.toString(), fvalue.get());
+          }
 
-        if (value instanceof IntWritable) {
-          IntWritable ivalue = (IntWritable) value;
-          Text tkey = (Text) entry.getKey();
-          context.set(tkey.toString(), ivalue.get());
-        }
+          if (value instanceof IntWritable) {
+            IntWritable ivalue = (IntWritable) value;
+            Text tkey = (Text) entry.getKey();
+            context.set(tkey.toString(), ivalue.get());
+          }
 
-        if (value instanceof Text) {
-          Text tvalue = (Text) value;
-          Text tkey = (Text) entry.getKey();
-          context.set(tkey.toString().replace("-", "_"), tvalue.toString());
+          if (value instanceof Text) {
+            Text tvalue = (Text) value;
+            Text tkey = (Text) entry.getKey();
+            context.set(tkey.toString().replace("-", "_"), tvalue.toString());
+          }
         }
       }
 
@@ -399,6 +405,8 @@ public class Generator extends NutchTool implements Tool {
         fetchDelayExpr = JexlUtil
             .parseExpression(conf.get(GENERATOR_FETCH_DELAY_EXPR, null));
       }
+      
+      readHostDb();
     }
 
     @Override
@@ -411,7 +419,7 @@ public class Generator extends NutchTool implements Tool {
     public void reduce(FloatWritable key, Iterable<SelectorEntry> values,
         Context context) throws IOException, InterruptedException {
 
-      String hostname = null;
+      String currentHostname = null;
       HostDatum host = null;
       LongWritable variableFetchDelayWritable = null; // in millis
       Text variableFetchDelayKey = new Text("_variableFetchDelay_");
@@ -422,33 +430,31 @@ public class Generator extends NutchTool implements Tool {
         String urlString = url.toString();
         URL u = null;
 
-        // Do this only once per queue
-        if (host == null) {
-          try {
-            hostname = URLUtil.getHost(urlString);
-            host = getHostDatum(hostname);
-          } catch (Exception e) {
-          }
+        String hostname = URLUtil.getHost(urlString);
+        if (!hostname.equals(currentHostname)) {
+          currentHostname = hostname;
+          host = hostDatumCache.get(hostname);
 
           // Got it?
-          if (host == null) {
-            // Didn't work, prevent future lookups
-            host = new HostDatum();
-          } else {
+          if (host != null) {
             if (maxCountExpr != null) {
-              long variableMaxCount = Math
-                  .round((double) maxCountExpr.execute(createContext(host)));
-              LOG.info("Generator: variable maxCount: {} for {}",
-                  variableMaxCount, hostname);
-              maxCount = (int) variableMaxCount;
+              try {
+                long variableMaxCount = Math.round((double)maxCountExpr.execute(createContext(host)));
+                LOG.debug("Generator: variable maxCount: {} for {}", variableMaxCount, hostname);
+                maxCount = (int)variableMaxCount;
+              } catch (Exception e) {
+                LOG.error("Unable to execute variable maxCount expression because: " + e.getMessage(), e);
+              }
             }
 
             if (fetchDelayExpr != null) {
-              long variableFetchDelay = Math
-                  .round((double) fetchDelayExpr.execute(createContext(host)));
-              LOG.info("Generator: variable fetchDelay: {} ms for {}",
-                  variableFetchDelay, hostname);
-              variableFetchDelayWritable = new LongWritable(variableFetchDelay);
+              try {
+                long variableFetchDelay = Math.round((double)fetchDelayExpr.execute(createContext(host)));
+                LOG.debug("Generator: variable fetchDelay: {} ms for {}", variableFetchDelay, hostname);
+                variableFetchDelayWritable = new LongWritable(variableFetchDelay);
+              } catch (Exception e) {
+                LOG.error("Unable to execute fetch delay expression because: " + e.getMessage(), e);
+              }
             }
           }
         }
@@ -547,24 +553,6 @@ public class Generator extends NutchTool implements Tool {
 
     private String generateFileName(SelectorEntry entry) {
       return "fetchlist-" + entry.segnum.toString() + "/part";
-    }
-
-    private HostDatum getHostDatum(String host) throws Exception {
-      Text key = new Text();
-      HostDatum value = new HostDatum();
-
-      open();
-      for (int i = 0; i < hostdbReaders.length; i++) {
-        while (hostdbReaders[i].next(key, value)) {
-          if (host.equals(key.toString())) {
-            close();
-            return value;
-          }
-        }
-      }
-
-      close();
-      return null;
     }
   }
 
@@ -891,9 +879,7 @@ public class Generator extends NutchTool implements Tool {
     try {
       boolean success = job.waitForCompletion(true);
       if (!success) {
-        String message = "Generator job did not succeed, job status:"
-            + job.getStatus().getState() + ", reason: "
-            + job.getStatus().getFailureInfo();
+        String message = NutchJob.getJobFailureLogMessage("Generator", job);
         LOG.error(message);
         NutchJob.cleanupAfterFailure(tempDir, lock, fs);
         throw new RuntimeException(message);
@@ -969,9 +955,7 @@ public class Generator extends NutchTool implements Tool {
       try {
         boolean success = job.waitForCompletion(true);
         if (!success) {
-          String message = "Generator job did not succeed, job status:"
-              + job.getStatus().getState() + ", reason: "
-              + job.getStatus().getFailureInfo();
+          String message = NutchJob.getJobFailureLogMessage("Generator", job);
           LOG.error(message);
           NutchJob.cleanupAfterFailure(tempDir, lock, fs);
           NutchJob.cleanupAfterFailure(tempDir2, lock, fs);
@@ -1035,9 +1019,7 @@ public class Generator extends NutchTool implements Tool {
     try {
       boolean success = job.waitForCompletion(true);
       if (!success) {
-        String message = "Generator job did not succeed, job status:"
-            + job.getStatus().getState() + ", reason: "
-            + job.getStatus().getFailureInfo();
+        String message = NutchJob.getJobFailureLogMessage("Generator", job);
         LOG.error(message);
         throw new RuntimeException(message);
       }
@@ -1075,7 +1057,7 @@ public class Generator extends NutchTool implements Tool {
   public int run(String[] args) throws Exception {
     if (args.length < 2) {
       System.out.println(
-          "Usage: Generator <crawldb> <segments_dir> [-force] [-topN N] [-numFetchers numFetchers] [-expr <expr>] [-adddays <numDays>] [-noFilter] [-noNorm] [-maxNumSegments <num>]");
+          "Usage: Generator <crawldb> <segments_dir> [-hostdb <hostdb>] [-force] [-topN N] [-numFetchers numFetchers] [-expr <expr>] [-adddays <numDays>] [-noFilter] [-noNorm] [-maxNumSegments <num>]");
       return -1;
     }
 

@@ -130,6 +130,32 @@
 </property>
 
 <property>
+  <name>http.robots.503.defer.visits</name>
+  <value>true</value>
+  <description>Temporarily suspend fetching from a host if the
+  robots.txt response is HTTP 503 or any other 5xx server error. See
+  also http.robots.503.defer.visits.delay and
+  http.robots.503.defer.visits.retries</description>
+</property>
+
+<property>
+  <name>http.robots.503.defer.visits.delay</name>
+  <value>300000</value>
+  <description>Time in milliseconds to suspend crawling a host if the
+  robots.txt response is HTTP 5xx - see
+  http.robots.503.defer.visits.</description>
+</property>
+
+<property>
+  <name>http.robots.503.defer.visits.retries</name>
+  <value>3</value>
+  <description>Number of retries crawling a host if the robots.txt
+  response is HTTP 5xx - see http.robots.503.defer.visits. After n
+  retries the host queue is dropped for this segment/cycle.
+  </description>
+</property>
+
+<property>
   <name>http.agent.description</name>
   <value></value>
   <description>Further description of our bot- this text is used in
@@ -158,7 +184,7 @@
 
 <property>
   <name>http.agent.version</name>
-  <value>Nutch-1.19-SNAPSHOT</value>
+  <value>Nutch-1.20-SNAPSHOT</value>
   <description>A version string to advertise in the User-Agent 
    header.</description>
 </property>
@@ -401,6 +427,52 @@
   is read from the CrawlDatum Cookie metadata field.
   </description>
 </property>
+
+<property>
+  <name>http.connection.pool.okhttp</name>
+  <value></value>
+  <description>
+    (EXPERT) List of 3 integer values [M,N,T]: Instantiate
+    protocol-okhttp with M connection pools of size N and a keep-alive
+    time of T seconds.  The product M*N should approx. correspond to
+    the number of crawled hosts in one fetcher task during the
+    keep-alive time.  Because OkHttp's connection pool (v4.9.1) is not
+    optimized for fast look-up of connections, the pool size N should
+    not exceed 1000.  To allow for efficient pooling, multiple pools
+    are instantiated and connections are distributed over the pools by
+    target host name.  If the property is undefined or empty a single
+    pool is used with OkHttp's default size and keep-alive time. For
+    OkHttp 4.9.1 the default is equivalent to a configuration value
+    &quot;1,5,300&quot; - one pool with 5 idle connections and 300
+    sec. keep-alive time.  See also NUTCH-2896 and
+    https://square.github.io/okhttp/3.x/okhttp/okhttp3/ConnectionPool.html
+  </description>
+</property>
+
+<property>
+  <name>http.filter.ipaddress.include</name>
+  <value></value>
+  <description>
+    If not empty: only fetch content from these IP addresses defined
+    as a comma-separated list of a single IP address, a CIDR notation,
+    or one of the following pre-defined IP address types: localhost,
+    loopback, sitelocal. The property http.filter.ipaddress.exclude
+    can be used to block subranges in the included list of ranges.
+    Note: supported only by protocol-okhttp.
+  </description>
+</property>
+
+<property>
+  <name>http.filter.ipaddress.exclude</name>
+  <value></value>
+  <description>
+    If not empty: do not fetch content from these IP addresses defined
+    as a comma-separated list of a single IP address, a CIDR notation,
+    or one of the following pre-defined IP address types: localhost,
+    loopback, sitelocal. Note: supported only by protocol-okhttp.
+  </description>
+</property>
+
 
 <!-- FTP properties -->
 
@@ -1055,10 +1127,25 @@
 <property>
   <name>fetcher.max.exceptions.per.queue</name>
   <value>-1</value>
-  <description>The maximum number of protocol-level exceptions (e.g. timeouts) per
-  host (or IP) queue. Once this value is reached, any remaining entries from this
-  queue are purged, effectively stopping the fetching from this host/IP. The default
-  value of -1 deactivates this limit.
+  <description>The maximum number of protocol-level exceptions
+  (e.g. timeouts) or HTTP status codes mapped to ProtocolStatus.EXCEPTION
+  per host (or IP) queue. Once this value is reached, any remaining entries
+  from this queue are purged, effectively stopping the fetching from this
+  host/IP. The default value of -1 deactivates this limit.
+  </description>
+</property>
+
+<property>
+  <name>fetcher.exceptions.per.queue.delay</name>
+  <value>${fetcher.server.delay}</value>
+  <description>Initial value (in seconds) of an additional dynamic
+  delay slowing down fetches from a queue after an exception has
+  occurred (see also fetcher.max.exceptions.per.queue). Starting with
+  the initial value the delay doubles with every observed exception:
+
+    delay = fetcher.exceptions.per.queue.delay * 2^num_exception_in_queue
+
+  An initial value of 0.0 disables this exponential backoff mechanism.
   </description>
 </property>
 
@@ -2071,7 +2158,8 @@ Add scoring-metadata to the list of active plugins
   'domainDatabase', 'ispDatabase' or 'insightsService'. If you wish to use any one of the 
   Database options, you should make one of GeoIP2-City.mmdb, GeoIP2-Connection-Type.mmdb, 
   GeoIP2-Domain.mmdb or GeoIP2-ISP.mmdb files respectively available on the classpath and
-  available at runtime.
+  available at runtime. Alternatively, also the GeoLite2 IP databases (GeoLite2-*.mmdb)
+  can be used.
   </description>
 </property>
 

@@ -39,6 +39,7 @@ import java.util.regex.Pattern;
 
 import org.apache.commons.jexl3.JexlScript;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -49,6 +50,8 @@ import org.apache.hadoop.io.MapFile;
 import org.apache.hadoop.io.SequenceFile;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
+import org.apache.hadoop.io.compress.CompressionCodec;
+import org.apache.hadoop.io.compress.GzipCodec;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.RecordWriter;
@@ -61,6 +64,7 @@ import org.apache.hadoop.mapreduce.lib.output.MapFileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.SequenceFileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.apache.hadoop.mapreduce.lib.partition.HashPartitioner;
+import org.apache.hadoop.util.ReflectionUtils;
 import org.apache.hadoop.util.StringUtils;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.nutch.util.AbstractChecker;
@@ -166,6 +170,7 @@ public class CrawlDbReader extends AbstractChecker implements Closeable {
           out.writeBytes(
               "Url,Status code,Status name,Fetch Time,Modified Time,Retries since fetch,Retry interval seconds,Retry interval days,Score,Signature,Metadata\n");
         } catch (IOException e) {
+          LOG.error("Failed to write header line", e);
         }
       }
 
@@ -225,11 +230,25 @@ public class CrawlDbReader extends AbstractChecker implements Closeable {
     @Override
     public RecordWriter<Text, CrawlDatum> getRecordWriter(
         TaskAttemptContext context) throws IOException {
-      String name = getUniqueFile(context, "part", "");
-      Path dir = FileOutputFormat.getOutputPath(context);
-      FileSystem fs = dir.getFileSystem(context.getConfiguration());
-      DataOutputStream fileOut = fs.create(new Path(dir, name), context);
-      return new LineRecordWriter(fileOut);
+      Configuration conf = context.getConfiguration();
+      boolean isCompressed = FileOutputFormat.getCompressOutput(context);
+      CompressionCodec codec = null;
+      String extension = "";
+      if (isCompressed) {
+        Class<? extends CompressionCodec> codecClass = getOutputCompressorClass(
+            context, GzipCodec.class);
+        codec = ReflectionUtils.newInstance(codecClass, conf);
+        extension = codec.getDefaultExtension();
+      }
+      Path file = getDefaultWorkFile(context, extension);
+      FileSystem fs = file.getFileSystem(conf);
+      FSDataOutputStream fileOut = fs.create(file, false);
+      if (isCompressed) {
+        return new LineRecordWriter(
+            new DataOutputStream(codec.createOutputStream(fileOut)));
+      } else {
+        return new LineRecordWriter(fileOut);
+      }
     }
   }
 
@@ -294,11 +313,25 @@ public class CrawlDbReader extends AbstractChecker implements Closeable {
     @Override
     public RecordWriter<Text, CrawlDatum> getRecordWriter(
         TaskAttemptContext context) throws IOException {
-      String name = getUniqueFile(context, "part", "");
-      Path dir = FileOutputFormat.getOutputPath(context);
-      FileSystem fs = dir.getFileSystem(context.getConfiguration());
-      DataOutputStream fileOut = fs.create(new Path(dir, name), context);
-      return new LineRecordWriter(fileOut);
+      Configuration conf = context.getConfiguration();
+      boolean isCompressed = FileOutputFormat.getCompressOutput(context);
+      CompressionCodec codec = null;
+      String extension = "";
+      if (isCompressed) {
+        Class<? extends CompressionCodec> codecClass = getOutputCompressorClass(
+            context, GzipCodec.class);
+        codec = ReflectionUtils.newInstance(codecClass, conf);
+        extension = codec.getDefaultExtension();
+      }
+      Path file = getDefaultWorkFile(context, extension);
+      FileSystem fs = file.getFileSystem(conf);
+      FSDataOutputStream fileOut = fs.create(file, false);
+      if (isCompressed) {
+        return new LineRecordWriter(
+            new DataOutputStream(codec.createOutputStream(fileOut)));
+      } else {
+        return new LineRecordWriter(fileOut);
+      }
     }
 
     public static class WritableSerializer extends JsonSerializer<Writable> {
@@ -556,9 +589,7 @@ public class CrawlDbReader extends AbstractChecker implements Closeable {
     try {
       boolean success = job.waitForCompletion(true);
       if (!success) {
-        String message = "CrawlDbReader job did not succeed, job status:"
-            + job.getStatus().getState() + ", reason: "
-            + job.getStatus().getFailureInfo();
+        String message = NutchJob.getJobFailureLogMessage("CrawlDbReader", job);
         LOG.error(message);
         fileSystem.delete(tmpFolder, true);
         throw new RuntimeException(message);
@@ -847,9 +878,7 @@ public class CrawlDbReader extends AbstractChecker implements Closeable {
     try {
       boolean success = job.waitForCompletion(true);
       if (!success) {
-        String message = "CrawlDbReader job did not succeed, job status:"
-            + job.getStatus().getState() + ", reason: "
-            + job.getStatus().getFailureInfo();
+        String message = NutchJob.getJobFailureLogMessage("CrawlDbReader", job);
         LOG.error(message);
         throw new RuntimeException(message);
       }
@@ -959,9 +988,7 @@ public class CrawlDbReader extends AbstractChecker implements Closeable {
     try {
       boolean success = job.waitForCompletion(true);
       if (!success) {
-        String message = "CrawlDbReader job did not succeed, job status:"
-            + job.getStatus().getState() + ", reason: "
-            + job.getStatus().getFailureInfo();
+        String message = NutchJob.getJobFailureLogMessage("CrawlDbReader", job);
         LOG.error(message);
         fs.delete(tempDir, true);
         throw new RuntimeException(message);
@@ -993,9 +1020,7 @@ public class CrawlDbReader extends AbstractChecker implements Closeable {
     try {
       boolean success = job.waitForCompletion(true);
       if (!success) {
-        String message = "CrawlDbReader job did not succeed, job status:"
-            + job.getStatus().getState() + ", reason: "
-            + job.getStatus().getFailureInfo();
+        String message = NutchJob.getJobFailureLogMessage("CrawlDbReader", job);
         LOG.error(message);
         fs.delete(tempDir, true);
         throw new RuntimeException(message);
