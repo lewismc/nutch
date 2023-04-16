@@ -194,6 +194,26 @@ tasks.register<Sync>("resolve-default") {
     into(layout.buildDirectory.dir("${project.properties["lib.dir"]}"))
 }
 
+tasks.register("test-plugins"){
+    dependsOn("resolve-test", "compile")
+
+    doLast {
+        val pluginTestDir = file("src/plugin")
+
+        // Find all JUnit test classes in the plugin test directory
+        val testClasses = pluginTestDir.walkTopDown().filter {
+            it.isFile && it.name.endsWith("Test.java")
+        }
+
+        // Run the tests using the JUnit platform runner
+        project.javaexec {
+            main = "org.junit.platform.console.ConsoleLauncher"
+            args = testClasses.map { it.path }.toList()
+            classpath = sourceSets.test.runtimeClasspath
+        }
+    }
+}
+
 tasks.register<Sync>("resolve-test") {
     group = "gradleBuildSystem"
     description = "Resolve and retrieve dependencies"
