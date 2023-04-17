@@ -54,6 +54,7 @@
     <ant dir="indexer-dummy" target="deploy"/>
     <ant dir="indexer-elastic" target="deploy"/>
     <ant dir="indexer-kafka" target="deploy"/>
+    <ant dir="indexer-opensearch-1x" target="deploy"/>
     <ant dir="indexer-rabbit" target="deploy"/>
     <ant dir="indexer-solr" target="deploy"/>
     <ant dir="language-identifier" target="deploy"/>
@@ -64,7 +65,6 @@
     <ant dir="parse-html" target="deploy"/>
     <ant dir="parse-js" target="deploy"/>
     <ant dir="parse-metatags" target="deploy"/>
-    <ant dir="parse-swf" target="deploy"/>
     <ant dir="parse-tika" target="deploy"/>
     <ant dir="parse-zip" target="deploy"/>
     <ant dir="parsefilter-debug" target="deploy"/>
@@ -135,7 +135,6 @@
      <ant dir="parse-html" target="test"/>
      <ant dir="parse-js" target="test"/>
      <ant dir="parse-metatags" target="test"/>
-     <ant dir="parse-swf" target="test"/>
      <ant dir="parse-tika" target="test"/>
      <ant dir="parse-zip" target="test"/>
      <ant dir="parsefilter-regex" target="test"/>
@@ -196,6 +195,7 @@
     <ant dir="indexer-dummy" target="clean"/>
     <ant dir="indexer-elastic" target="clean"/>
     <ant dir="indexer-kafka" target="clean"/>
+    <ant dir="indexer-opensearch-1x" target="clean"/>
     <ant dir="indexer-rabbit" target="clean"/>
     <ant dir="indexer-solr" target="clean"/>
     <ant dir="language-identifier" target="clean"/>
@@ -213,7 +213,6 @@
     <ant dir="parse-html" target="clean"/>
     <ant dir="parse-js" target="clean"/>
     <ant dir="parse-metatags" target="clean"/>
-    <ant dir="parse-swf" target="clean"/>
     <ant dir="parse-tika" target="clean"/>
     <ant dir="parse-zip" target="clean"/>
     <ant dir="parsefilter-debug" target="clean" />
