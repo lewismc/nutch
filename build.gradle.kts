@@ -22,6 +22,7 @@ plugins {
     eclipse
     `maven-publish`
     `java-library`
+    id("com.dorongold.task-tree") version "2.1.1"
 }
 
 repositories {

@@ -38,18 +38,16 @@ import org.apache.hadoop.util.ReflectionUtils;
 /**
  * The <code>ArchRecordReader</code> class provides a record reader which reads
  * records from arc files.
- * <p>
+ * 
  * Arc files are essentially tars of gzips. Each record in an arc file is a
  * compressed gzip. Multiple records are concatenated together to form a
- * complete arc.</p> 
- * <p>For more information on the arc file format </p>
- * @see <a href='http://www.archive.org/web/researcher/ArcFileFormat.php'>ArcFileFormat</a><p>.</p>
+ * complete arc.
  * 
- * <p>
- * Arc files are used by the internet archive and grub projects.
- * </p>
+ * For more information on the arc file format 
+ * @see <a href='http://www.archive.org/web/researcher/ArcFileFormat.php'>ArcFileFormat</a>.
+ * Arc files are used by the Internet Archive and grub projects.
  * 
- * @see <a href='http://www.archive.org/'>archive.org</a> 
+ * @see <a href='https://www.archive.org/'>archive.org</a>
  * @see <a href='http://www.grub.org/'>grub.org</a>
  */
 public class ArcRecordReader extends RecordReader<Text, BytesWritable> {
