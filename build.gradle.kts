@@ -207,8 +207,9 @@ tasks.register<Sync>("resolve-test") {
 tasks.register("compile") {
     group = "gradleBuildSystem"
     description = "Compile all Java files"
-    //dependsOn("compile-core","compile-plugins")
-    dependsOn("compile-core")
+    //Plugins are not implemented yet, so we are only working with core build.
+    //Thus, plugin dirs here  will be commented out.
+    dependsOn("compile-core","compile-plugins")
 }
 
 tasks.register<JavaCompile>("compile-core") {
@@ -322,8 +323,8 @@ tasks.register<GradleBuild>("compile-plugins") {
     description = "Compile plugins only"
     dependsOn("init-nutch","resolve-default")
     //TODO Once plugins are finished, uncomment the following lines:
-    dir = file("src/plugin")
-    tasks = listOf("deploy")
+    // dir = file("src/plugin")
+    // tasks = listOf("deploy")
 }
 
 tasks.jar {
@@ -585,43 +586,61 @@ tasks.register<Zip>("zip-src") {
 tasks.register("gradle-eclipse") {
     group = "gradleBuildSystem"
     description = "create eclipse project files"
-    dependsOn("cleanEclipse","init", "resolve-test", "job")
-
-    eclipse{
-        //name = "${project.properties["projname"]}"
-    
-        // <taskdef name="eclipse"
-        //          classname="prantl.ant.eclipse.EclipseTask"
-        //          classpath="${build.dir}/lib/ant-eclipse-1.0-jvm1.2.jar" />
-        // <eclipse updatealways="true">
-        //   <project name="${eclipse.project}" />
-    
-        classpath {
-            //TODO: NEED TO ADD lib paths?
-            //     <library path="${conf.dir}" exported="false" />
-            //     <library path="${basedir}/src/bin" exported="false" />
-            //     <library pathref="eclipse.classpath" exported="false" />
-    
-            //default output dir
-            defaultOutputDir = file("${project.properties["build.classes"]}")
-        }
-        //Can unget the plugins. NEED TO STILL GET src/java and src/test
-        sourceSets {
-            main {
-                //these 2 do not seem to help
-                output.resourcesDir = file("./build/classes")
-                java.destinationDirectory.set(file("./build/classes"))
-                
-                //How to get classesDirs working? Requires FileCollection
-                //output.classesDirs = file("build/classes")
-    
-                java.srcDirs("./src/java/")
-            }
-    
-            test {
-                java.srcDirs("./src/test/") //need to add output
-            }
-        }     
-    } 
+    dependsOn("cleanEclipse","init", "resolve-test", "job", "eclipse")
 }
 
+eclipse{   
+    classpath {
+        defaultOutputDir = file("${project.properties["build.classes"]}")
+        file{
+            withXml {
+                asNode()
+                    .appendNode("classpathentry", mapOf("kind" to "src", "path" to "${project.properties["src.dir"]}"))
+                asNode()
+                    .appendNode("classpathentry", mapOf("kind" to "src", "path" to "${project.properties["test.src.dir"]}", "output" to "${project.properties["test.build.classes"]}"))
+                asNode()
+                    .appendNode("classpathentry", mapOf("kind" to "lib", "path" to "${project.properties["conf.dir"]}"))
+                asNode()
+                    .appendNode("classpathentry", mapOf("kind" to "lib", "path" to "${project.properties["base.dir"]}src/bin"))
+                // asNode()
+                //     .appendNode("classpathentry", mapOf("kind" to "lib", "path" to "eclipse.classpath"))
+            }
+
+            // whenMerged{
+            //     val conf = org.gradle.plugins.ide.eclipse.model.Library(fileReference(file("${project.properties["conf.dir"]}")))
+            //     // lib.exported = false
+            //     classpath.entries.add(base)
+
+            //     val base = org.gradle.plugins.ide.eclipse.model.Library(fileReference(file("${project.properties["basedir"]}/src/bin")))
+            //     // .exported = false
+            //     classpath.entries.add(base)
+
+            //     val pathref = org.gradle.plugins.ide.eclipse.model.Library(fileReference(file("eclipse.classpath")))
+            //     // lib.exported = false
+            //     classpath.entries.add(pathref)
+            // }
+        }
+    }
+} 
+
+//maybe use something like this for the classpath for generating eclipse project
+//for <library pathref="eclipse.classpath" exported="false" />
+
+// the normal classpath
+// val classpathCollection: FileCollection = layout.files(
+//     file("${project.properties["build.classes"]}"),
+//     fileTree(mapOf("dir" to project.properties["build.lib.dir"], "include" to listOf("*.jar")))
+// )
+// val classPath: String = classpathCollection.asPath
+
+// // test classpath
+// val testClasspathCollection: FileCollection = layout.files(
+//     file("${project.properties["test.build.classes"]}"),
+//     file("${project.properties["conf.dir"]}"),
+//     file("${project.properties["test.src.dir"]}"),
+//     file("${project.properties["build.plugins"]}"),
+//     classpathCollection,
+//     file(layout.buildDirectory.dir("${project.properties["build.dir"]}/${project.properties["final.name"]}.job")),
+//     fileTree(mapOf("dir" to project.properties["build.lib.dir"], "include" to listOf("*.jar"))),
+//     fileTree(mapOf("dir" to project.properties["test.build.lib.dir"], "include" to listOf("*.jar")))
+// )
