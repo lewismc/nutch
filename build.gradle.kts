@@ -129,6 +129,7 @@ configurations {
     implementation {
         resolutionStrategy.failOnVersionConflict()
     }
+    eclipseclasspathCollection
 }
 
 configurations.all {
@@ -583,64 +584,62 @@ tasks.register<Zip>("zip-src") {
     )
 }
 
+//Use FileCollection for getting files for the classpath for generating eclipse project
+
+//the eclipse classpath
+val eclipseclasspathCollection: FileCollection = layout.files(
+    fileTree(mapOf("dir" to project.properties["build.lib.dir"], "include" to listOf("*.jar"), "exclude" to listOf("ant-eclipse-1.0-jvm1.2.jar"))),
+    fileTree(mapOf("dir" to project.properties["test.build.lib.dir"], "include" to listOf("*.jar"))),
+    //this one is plugin related
+    fileTree(mapOf("dir" to project.properties["build.plugins"], "include" to listOf("**/*.jar"))),
+)
+val eclipseclassPath: String = eclipseclasspathCollection.asPath
+
+//the eclipse src/plugin classpath
+val eclipsesrcpluginclasspathCollection: FileCollection = layout.files(
+    fileTree(mapOf("dir" to project.properties["plugins.dir"], "include" to listOf("*/src/java/", "*/src/test/")))
+)
+val eclipsesrcpluginclassPath: String = eclipsesrcpluginclasspathCollection.asPath
+
 tasks.register("gradle-eclipse") {
     group = "gradleBuildSystem"
     description = "create eclipse project files"
-    dependsOn("cleanEclipse","init", "resolve-test", "job", "eclipse")
+    dependsOn("cleanEclipse", "init", "resolve-test", "job", "eclipse")
 }
 
-eclipse{   
+eclipse{
     classpath {
-        defaultOutputDir = file("${project.properties["build.classes"]}")
         file{
             withXml {
-                asNode()
-                    .appendNode("classpathentry", mapOf("kind" to "src", "path" to "${project.properties["src.dir"]}"))
-                asNode()
-                    .appendNode("classpathentry", mapOf("kind" to "src", "path" to "${project.properties["test.src.dir"]}", "output" to "${project.properties["test.build.classes"]}"))
-                asNode()
-                    .appendNode("classpathentry", mapOf("kind" to "lib", "path" to "${project.properties["conf.dir"]}"))
-                asNode()
-                    .appendNode("classpathentry", mapOf("kind" to "lib", "path" to "${project.properties["base.dir"]}src/bin"))
-                // asNode()
-                //     .appendNode("classpathentry", mapOf("kind" to "lib", "path" to "eclipse.classpath"))
+                asNode().appendNode("classpathentry", mapOf("kind" to "src", "path" to "${project.properties["src.dir"]}"))
+                asNode().appendNode("classpathentry", mapOf("kind" to "src", "path" to "${project.properties["test.src.dir"]}", "output" to "${project.properties["test.build.classes"]}"))
+                
+                //source path for all plugin/dir directories
+                val dirSet = mutableSetOf("")
+                dirSet.remove("")
+                eclipsesrcpluginclasspathCollection.forEach{
+                    var idx = it.toString().lastIndexOf("/src/plugin/")
+                    var endidx = it.toString().lastIndexOf("/src/java/")
+                    if(endidx == -1){
+                        endidx = it.toString().lastIndexOf("/src/test/")
+                    }
+                    var subit = it.toString().substring(idx+1, endidx+10)
+                    if(subit !in dirSet){
+                        dirSet.add(subit)
+                        asNode().appendNode("classpathentry", mapOf("kind" to "src", "path" to subit))
+                    }
+                }
+
+                //lib entries
+                asNode().appendNode("classpathentry", mapOf("kind" to "lib", "path" to "${project.properties["conf.dir"]}"))
+                asNode().appendNode("classpathentry", mapOf("kind" to "lib", "path" to "${project.properties["base.dir"]}src/bin"))
+                eclipseclasspathCollection.forEach{
+                    var idx = it.toString().lastIndexOf("/build/")
+                    var subit = it.toString().substring(idx+1)
+                    asNode().appendNode("classpathentry", mapOf("kind" to "lib", "path" to subit))
+                }
             }
-
-            // whenMerged{
-            //     val conf = org.gradle.plugins.ide.eclipse.model.Library(fileReference(file("${project.properties["conf.dir"]}")))
-            //     // lib.exported = false
-            //     classpath.entries.add(base)
-
-            //     val base = org.gradle.plugins.ide.eclipse.model.Library(fileReference(file("${project.properties["basedir"]}/src/bin")))
-            //     // .exported = false
-            //     classpath.entries.add(base)
-
-            //     val pathref = org.gradle.plugins.ide.eclipse.model.Library(fileReference(file("eclipse.classpath")))
-            //     // lib.exported = false
-            //     classpath.entries.add(pathref)
-            // }
         }
+        defaultOutputDir = file("${project.properties["build.classes"]}")
     }
-} 
-
-//maybe use something like this for the classpath for generating eclipse project
-//for <library pathref="eclipse.classpath" exported="false" />
-
-// the normal classpath
-// val classpathCollection: FileCollection = layout.files(
-//     file("${project.properties["build.classes"]}"),
-//     fileTree(mapOf("dir" to project.properties["build.lib.dir"], "include" to listOf("*.jar")))
-// )
-// val classPath: String = classpathCollection.asPath
-
-// // test classpath
-// val testClasspathCollection: FileCollection = layout.files(
-//     file("${project.properties["test.build.classes"]}"),
-//     file("${project.properties["conf.dir"]}"),
-//     file("${project.properties["test.src.dir"]}"),
-//     file("${project.properties["build.plugins"]}"),
-//     classpathCollection,
-//     file(layout.buildDirectory.dir("${project.properties["build.dir"]}/${project.properties["final.name"]}.job")),
-//     fileTree(mapOf("dir" to project.properties["build.lib.dir"], "include" to listOf("*.jar"))),
-//     fileTree(mapOf("dir" to project.properties["test.build.lib.dir"], "include" to listOf("*.jar")))
-// )
+}
