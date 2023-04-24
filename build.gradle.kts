@@ -129,7 +129,6 @@ configurations {
     implementation {
         resolutionStrategy.failOnVersionConflict()
     }
-    eclipseclasspathCollection
 }
 
 configurations.all {
