@@ -603,12 +603,28 @@ val eclipsesrcpluginclassPath: String = eclipsesrcpluginclasspathCollection.asPa
 tasks.register("gradle-eclipse") {
     group = "gradleBuildSystem"
     description = "create eclipse project files"
-    dependsOn("cleanEclipse", "init", "resolve-test", "job", "eclipse")
+    dependsOn("eclipse")
 }
 
 eclipse{
+    tasks.eclipseClasspath.get().dependsOn("cleanEclipse", "init", "resolve-test", "job")
     classpath {
+        //try to add the classpath as a configuration so the jars get added
+        // plusConfigurations.add()
         file{
+            //either try to add jars here via FileReference (or maybe setLibrary?)
+            // if can use getXML, directly add in lib nodes
+            beforeMerged{
+                //println("beforemerged: "+this)
+                // arg.getXML().asNode().appendNode("classpathentry", mapOf("kind" to "lib", "path" to "${project.properties["conf.dir"]}"))
+                // arg.getXML().asNode().appendNode("classpathentry", mapOf("kind" to "lib", "path" to "${project.properties["base.dir"]}src/bin"))
+                // eclipseclasspathCollection.forEach{
+                //     var idx = it.toString().lastIndexOf("/build/")
+                //     var subit = it.toString().substring(idx+1)
+                //     arg.getXML().asNode().appendNode("classpathentry", mapOf("kind" to "lib", "path" to subit))
+                // }
+            }
+
             withXml {
                 asNode().appendNode("classpathentry", mapOf("kind" to "src", "path" to "${project.properties["src.dir"]}"))
                 asNode().appendNode("classpathentry", mapOf("kind" to "src", "path" to "${project.properties["test.src.dir"]}", "output" to "${project.properties["test.build.classes"]}"))
@@ -629,6 +645,8 @@ eclipse{
                     }
                 }
 
+                //Note: Lib jar are currently being added via cache, then these files are appeneded into XML afterwards.
+                //However, the lib entries need to be added in beforeMerged or as a configuration (removing the caches will break)
                 //lib entries
                 asNode().appendNode("classpathentry", mapOf("kind" to "lib", "path" to "${project.properties["conf.dir"]}"))
                 asNode().appendNode("classpathentry", mapOf("kind" to "lib", "path" to "${project.properties["base.dir"]}src/bin"))
