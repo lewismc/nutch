@@ -33,9 +33,9 @@ The following files in Apache Nutch contained deprecated `finalize()` methods:
   - Separate state object for cleanup logic
   - Compatible with Java 9+
 
-### 2. PluginRepository.java Replacement
+### 2. PluginRepository.java Replacements
 
-#### PluginRepositoryAutoCloseable.java
+#### a) PluginRepositoryAutoCloseable.java
 - **Location**: `/workspace/src/java/org/apache/nutch/plugin/PluginRepositoryAutoCloseable.java`
 - **Approach**: Implements `AutoCloseable` interface
 - **Key Features**:
@@ -45,6 +45,17 @@ The following files in Apache Nutch contained deprecated `finalize()` methods:
   - Shuts down all activated plugins
   - Compatible with Java 7+
   - Updated `main()` method uses try-with-resources
+
+#### b) PluginRepositoryWithCleaner.java
+- **Location**: `/workspace/src/java/org/apache/nutch/plugin/PluginRepositoryWithCleaner.java`
+- **Approach**: Uses Java 9+ `Cleaner` API
+- **Key Features**:
+  - Automatic cleanup via Cleaner
+  - Separate cleanup state with ConcurrentHashMap for thread safety
+  - Removes instance from cache during cleanup
+  - Shuts down all activated plugins automatically
+  - Compatible with Java 9+
+  - Explicit `close()` method for immediate cleanup
 
 ### 3. Ftp.java Replacements
 
@@ -102,11 +113,19 @@ PluginRepository repo = new PluginRepository(conf);
 // finalize() called automatically (unreliable)
 ```
 
-With:
+With (AutoCloseable approach):
 ```java
 try (PluginRepositoryAutoCloseable repo = new PluginRepositoryAutoCloseable(conf)) {
     // ... use repository
 } // close() called automatically
+```
+
+Or (Cleaner approach for Java 9+):
+```java
+PluginRepositoryWithCleaner repo = new PluginRepositoryWithCleaner(conf);
+// ... use repository
+// Cleaner will handle cleanup automatically
+// Or call repo.close() for immediate cleanup
 ```
 
 ### For Ftp.java
