@@ -38,7 +38,7 @@ import org.apache.hadoop.conf.Configuration;
  * 
  * @author joa23
  */
-public class Plugin {
+public class Plugin implements AutoCloseable {
   private PluginDescriptor fDescriptor;
   protected Configuration conf;
 
@@ -90,7 +90,7 @@ public class Plugin {
   }
 
   @Override
-  protected void finalize() throws Throwable {
+  public void close() throws PluginRuntimeException {
     shutDown();
   }
 }

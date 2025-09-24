@@ -48,7 +48,7 @@ import java.io.IOException;
  * {@code ftp.password}, {@code ftp.keep.connection} and {@code ftp.follow.talk}
  * . For details see "FTP properties" section in {@code nutch-default.xml}.
  */
-public class Ftp implements Protocol {
+public class Ftp implements Protocol, AutoCloseable {
 
   protected static final Logger LOG = LoggerFactory
       .getLogger(MethodHandles.lookup().lookupClass());
@@ -188,15 +188,8 @@ public class Ftp implements Protocol {
   }
 
   @Override
-  protected void finalize() {
-    try {
-      if (this.client != null && this.client.isConnected()) {
-        this.client.logout();
-        this.client.disconnect();
-      }
-    } catch (IOException e) {
-      // do nothing
-    }
+  public void close() {
+    FtpUtils.closeQuietly(this.client);
   }
 
   /** 
@@ -242,33 +235,31 @@ public class Ftp implements Protocol {
       }
     }
 
-    Ftp ftp = new Ftp();
+    try (Ftp ftp = new Ftp()) {
+      ftp.setFollowTalk(followTalk);
+      ftp.setKeepConnection(keepConnection);
 
-    ftp.setFollowTalk(followTalk);
-    ftp.setKeepConnection(keepConnection);
+      if (timeout != Integer.MIN_VALUE) // set timeout
+        ftp.setTimeout(timeout);
 
-    if (timeout != Integer.MIN_VALUE) // set timeout
-      ftp.setTimeout(timeout);
+      if (maxContentLength != Integer.MIN_VALUE) // set maxContentLength
+        ftp.setMaxContentLength(maxContentLength);
 
-    if (maxContentLength != Integer.MIN_VALUE) // set maxContentLength
-      ftp.setMaxContentLength(maxContentLength);
+      // set log level
+      // LOG.setLevel(Level.parse((new String(logLevel)).toUpperCase()));
 
-    // set log level
-    // LOG.setLevel(Level.parse((new String(logLevel)).toUpperCase()));
+      Content content = ftp.getProtocolOutput(new Text(urlString),
+          new CrawlDatum()).getContent();
 
-    Content content = ftp.getProtocolOutput(new Text(urlString),
-        new CrawlDatum()).getContent();
-
-    System.err.println("Content-Type: " + content.getContentType());
-    System.err.println("Content-Length: "
-        + content.getMetadata().get(Response.CONTENT_LENGTH));
-    System.err.println("Last-Modified: "
-        + content.getMetadata().get(Response.LAST_MODIFIED));
-    if (dumpContent) {
-      System.out.print(new String(content.getContent()));
+      System.err.println("Content-Type: " + content.getContentType());
+      System.err.println("Content-Length: "
+          + content.getMetadata().get(Response.CONTENT_LENGTH));
+      System.err.println("Last-Modified: "
+          + content.getMetadata().get(Response.LAST_MODIFIED));
+      if (dumpContent) {
+        System.out.print(new String(content.getContent()));
+      }
     }
-
-    ftp = null;
   }
 
   /**

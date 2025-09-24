@@ -53,7 +53,7 @@ import org.slf4j.LoggerFactory;
  * how the JVM creates URLs can be seen in the API documentation for the
  * <a href="https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/net/URL.html#%3Cinit%3E(java.lang.String,java.lang.String,int,java.lang.String)">URL constructor</a>.</p>
  */
-public class PluginRepository implements URLStreamHandlerFactory {
+public class PluginRepository implements URLStreamHandlerFactory, AutoCloseable {
   private static final WeakHashMap<String, PluginRepository> CACHE = new WeakHashMap<>();
 
   private boolean auto;
@@ -103,6 +103,9 @@ public class PluginRepository implements URLStreamHandlerFactory {
     }
 
     registerURLStreamHandlerFactory();
+
+    // Ensure active plugins are shut down on JVM termination
+    PluginRepositoryShutdownHook.register(this);
 
     displayStatus();
   }
@@ -313,17 +316,15 @@ public class PluginRepository implements URLStreamHandlerFactory {
     }
   }
 
-  /**
-   * Attempts to shut down all activated plugins.
-   * @deprecated
-   * @see <a href="https://openjdk.java.net/jeps/421">JEP 421: Deprecate Finalization for Removal</a>
-   * @see java.lang.Object#finalize()
-   * @deprecated
-   */
+  private volatile boolean closed = false;
+
   @Override
-  @Deprecated
-  public void finalize() throws Throwable {
+  public synchronized void close() throws PluginRuntimeException {
+    if (this.closed) {
+      return;
+    }
     shutDownActivatedPlugins();
+    this.closed = true;
   }
 
   /**
