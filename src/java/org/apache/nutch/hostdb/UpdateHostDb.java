@@ -38,6 +38,7 @@ import org.apache.nutch.crawl.CrawlDb;
 import org.apache.nutch.crawl.NutchWritable;
 import org.apache.nutch.util.FSUtils;
 import org.apache.nutch.util.LockUtil;
+import org.apache.nutch.metrics.ShuffleAnalyzer;
 import org.apache.nutch.util.NutchConfiguration;
 import org.apache.nutch.util.NutchJob;
 
@@ -142,6 +143,9 @@ public class UpdateHostDb extends Configured implements Tool {
       FSUtils.replace(fs, current, tempHostDb, true);
 
       if (!preserveBackup && fs.exists(old)) fs.delete(old, true);
+
+      // Log shuffle analysis if enabled
+      ShuffleAnalyzer.logAnalysis(job, getConf());
     } catch (Exception e) {
       LOG.error("UpdateHostDb job failed: {}", e.getMessage());
       NutchJob.cleanupAfterFailure(tempHostDb, lock, fs);

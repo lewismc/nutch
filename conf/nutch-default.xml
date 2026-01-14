@@ -3067,4 +3067,17 @@ one publisher implementation for RabbitMQ (plugin publish-rabbitmq).
    </description>
 </property>
 
+<!-- Shuffle Analysis properties -->
+
+<property>
+  <name>shuffle.analysis.enabled</name>
+  <value>false</value>
+  <description>
+    If true, log shuffle analysis metrics after each MapReduce job completes.
+    The analysis includes shuffle ratio, spill ratio, and an intensity rating
+    to help identify jobs that would benefit from remote shuffle services
+    such as Apache Uniffle or Apache Celeborn.
+  </description>
+</property>
+
 </configuration>

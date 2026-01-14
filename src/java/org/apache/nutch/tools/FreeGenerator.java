@@ -46,6 +46,7 @@ import org.apache.nutch.crawl.URLPartitioner;
 import org.apache.nutch.net.URLFilters;
 import org.apache.nutch.net.URLNormalizers;
 import org.apache.nutch.scoring.ScoringFilters;
+import org.apache.nutch.metrics.ShuffleAnalyzer;
 import org.apache.nutch.util.NutchConfiguration;
 import org.apache.nutch.util.NutchJob;
 
@@ -226,6 +227,10 @@ public class FreeGenerator extends Configured implements Tool {
       LOG.error("FAILED: {}", StringUtils.stringifyException(e));
       return -1;
     }
+
+    // Log shuffle analysis if enabled
+    ShuffleAnalyzer.logAnalysis(job, getConf());
+
     stopWatch.stop();
     LOG.info("FreeGenerator: finished, elapsed: {} ms", stopWatch.getTime(
         TimeUnit.MILLISECONDS));

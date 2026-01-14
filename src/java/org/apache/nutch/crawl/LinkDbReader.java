@@ -45,6 +45,7 @@ import org.apache.hadoop.util.StringUtils;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.hadoop.conf.Configuration;
 
+import org.apache.nutch.metrics.ShuffleAnalyzer;
 import org.apache.nutch.util.AbstractChecker;
 import org.apache.nutch.util.NutchConfiguration;
 import org.apache.nutch.util.NutchJob;
@@ -188,6 +189,9 @@ public class LinkDbReader extends AbstractChecker implements Closeable {
       LOG.error(StringUtils.stringifyException(e));
       throw e;
     }
+
+    // Log shuffle analysis if enabled
+    ShuffleAnalyzer.logAnalysis(job, getConf());
 
     stopWatch.stop();
     LOG.info("LinkDb dump: finished, elapsed: {} ms", stopWatch.getTime(

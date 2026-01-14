@@ -38,6 +38,7 @@ import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.nutch.crawl.CrawlDatum;
+import org.apache.nutch.metrics.ShuffleAnalyzer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -147,6 +148,9 @@ public class DomainStatistics extends Configured implements Tool {
       LOG.error("{} job failed", jobName, e);
       throw e;
     }
+
+    // Log shuffle analysis if enabled
+    ShuffleAnalyzer.logAnalysis(job, getConf());
 
     stopWatch.stop();
     LOG.info("DomainStatistics: finished, elapsed: {} ms ", stopWatch.getTime(

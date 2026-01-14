@@ -42,6 +42,7 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.MapFileOutputFormat;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
+import org.apache.nutch.metrics.ShuffleAnalyzer;
 import org.apache.nutch.util.NutchConfiguration;
 import org.apache.nutch.util.NutchJob;
 
@@ -149,6 +150,9 @@ public class CrawlDbMerger extends Configured implements Tool {
         throw new RuntimeException(message);
       }
       CrawlDb.install(job, output);
+
+      // Log shuffle analysis if enabled
+      ShuffleAnalyzer.logAnalysis(job, getConf());
     } catch (IOException | InterruptedException | ClassNotFoundException e) {
       LOG.error("CrawlDbMerge job failed: {}", e.getMessage());
       NutchJob.cleanupAfterFailure(outPath, lock, fs);

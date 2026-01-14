@@ -47,6 +47,7 @@ import org.apache.hadoop.util.ToolRunner;
 import org.apache.nutch.crawl.CrawlDatum;
 import org.apache.nutch.hostdb.HostDatum;
 import org.apache.nutch.metrics.NutchMetrics;
+import org.apache.nutch.metrics.ShuffleAnalyzer;
 import org.apache.nutch.net.URLFilters;
 import org.apache.nutch.net.URLNormalizers;
 import org.apache.nutch.protocol.Content;
@@ -498,6 +499,9 @@ public class SitemapProcessor extends Configured implements Tool {
       LOG.info("SitemapProcessor: Total sitemaps from seed urls: {}", fromSeeds);
       LOG.info("SitemapProcessor: Total failed sitemap fetches: {}", failedFetches);
       LOG.info("SitemapProcessor: Total new sitemap entries added: {}", newSitemapEntries);
+
+      // Log shuffle analysis if enabled
+      ShuffleAnalyzer.logAnalysis(job, getConf());
 
       stopWatch.stop();
       LOG.info("SitemapProcessor: finished, elapsed: {} ms", stopWatch.getTime(

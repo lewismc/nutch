@@ -40,6 +40,7 @@ import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
+import org.apache.nutch.metrics.ShuffleAnalyzer;
 import org.apache.nutch.util.NutchConfiguration;
 import org.apache.nutch.util.NutchJob;
 import org.apache.nutch.util.SegmentReaderUtil;
@@ -208,6 +209,9 @@ public class ReadHostDb extends Configured implements Tool {
       LOG.error("ReadHostDb job failed: {}", e.getMessage());
       throw e;
     }
+
+    // Log shuffle analysis if enabled
+    ShuffleAnalyzer.logAnalysis(job, getConf());
 
     stopWatch.stop();
     LOG.info("ReadHostDb: finished, elapsed: {} ms", stopWatch.getTime(

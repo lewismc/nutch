@@ -66,6 +66,7 @@ import org.apache.nutch.parse.ParseData;
 import org.apache.nutch.parse.ParseText;
 import org.apache.nutch.protocol.Content;
 import org.apache.nutch.util.HadoopFSUtil;
+import org.apache.nutch.metrics.ShuffleAnalyzer;
 import org.apache.nutch.util.NutchConfiguration;
 import org.apache.nutch.util.NutchJob;
 
@@ -740,6 +741,9 @@ public class SegmentMerger extends Configured implements Tool{
       LOG.error("SegmentMerger job failed: {}", e.getMessage());
       throw e;
     }
+
+    // Log shuffle analysis if enabled
+    ShuffleAnalyzer.logAnalysis(job, getConf());
   }
 
   /**

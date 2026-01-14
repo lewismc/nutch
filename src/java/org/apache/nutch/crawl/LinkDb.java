@@ -53,6 +53,7 @@ import org.apache.nutch.parse.ParseData;
 import org.apache.nutch.util.HadoopFSUtil;
 import org.apache.nutch.util.LockUtil;
 import org.apache.nutch.util.NutchConfiguration;
+import org.apache.nutch.metrics.ShuffleAnalyzer;
 import org.apache.nutch.util.NutchJob;
 import org.apache.nutch.util.NutchTool;
 
@@ -235,6 +236,9 @@ public class LinkDb extends NutchTool implements Tool {
       throw e;
     }
 
+    // Log shuffle analysis if enabled
+    ShuffleAnalyzer.logAnalysis(job, getConf());
+
     if (fs.exists(currentLinkDb)) {
       LOG.info("LinkDb: merging with existing linkdb: {}", linkDb);
 
@@ -256,6 +260,10 @@ public class LinkDb extends NutchTool implements Tool {
         NutchJob.cleanupAfterFailure(newLinkDb, lock, fs);
         throw e;
       }
+
+      // Log shuffle analysis if enabled
+      ShuffleAnalyzer.logAnalysis(job, getConf());
+
       fs.delete(newLinkDb, true);
     }
     LinkDb.install(job, linkDb);

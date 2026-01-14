@@ -39,6 +39,7 @@ import org.apache.nutch.metadata.Metadata;
 import org.apache.nutch.metadata.Nutch;
 import org.apache.nutch.metrics.LatencyTracker;
 import org.apache.nutch.metrics.NutchMetrics;
+import org.apache.nutch.metrics.ShuffleAnalyzer;
 import org.apache.nutch.net.protocols.Response;
 import org.apache.nutch.protocol.Content;
 import org.apache.nutch.scoring.ScoringFilterException;
@@ -279,6 +280,9 @@ public class ParseSegment extends NutchTool implements Tool {
       LOG.error(StringUtils.stringifyException(e));
       throw e;
     }
+
+    // Log shuffle analysis if enabled
+    ShuffleAnalyzer.logAnalysis(job, getConf());
 
     stopWatch.stop();
     LOG.info("ParseSegment: finished, elapsed: {} ms", stopWatch.getTime(

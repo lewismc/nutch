@@ -55,6 +55,7 @@ import org.apache.nutch.parse.ParseUtil;
 import org.apache.nutch.protocol.Content;
 import org.apache.nutch.protocol.ProtocolStatus;
 import org.apache.nutch.scoring.ScoringFilters;
+import org.apache.nutch.metrics.ShuffleAnalyzer;
 import org.apache.nutch.util.NutchConfiguration;
 import org.apache.nutch.util.NutchJob;
 import org.apache.nutch.util.StringUtil;
@@ -386,6 +387,9 @@ public class ArcSegmentCreator extends Configured implements Tool {
       LOG.error(StringUtils.stringifyException(e));
       throw e;
     }
+
+    // Log shuffle analysis if enabled
+    ShuffleAnalyzer.logAnalysis(job, getConf());
 
     stopWatch.stop();
     LOG.info("ArcSegmentCreator: finished, elapsed: {} ms{}", stopWatch.getTime(

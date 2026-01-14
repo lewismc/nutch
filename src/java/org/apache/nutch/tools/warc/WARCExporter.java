@@ -59,6 +59,7 @@ import org.apache.nutch.parse.ParseText;
 import org.apache.nutch.protocol.Content;
 import org.apache.nutch.tools.WARCUtils;
 import org.apache.nutch.metrics.NutchMetrics;
+import org.apache.nutch.metrics.ShuffleAnalyzer;
 import org.apache.nutch.util.HadoopFSUtil;
 import org.apache.nutch.util.NutchConfiguration;
 import org.apache.nutch.util.NutchJob;
@@ -503,6 +504,10 @@ public class WARCExporter extends Configured implements Tool {
         throw new RuntimeException(message);
       }
       LOG.info(job.getCounters().toString());
+
+      // Log shuffle analysis if enabled
+      ShuffleAnalyzer.logAnalysis(job, getConf());
+
       stopWatch.stop();
       LOG.info("WARCExporter: finished, elapsed: {} ms", stopWatch.getTime(
           TimeUnit.MILLISECONDS));

@@ -43,6 +43,7 @@ import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.nutch.util.HadoopFSUtil;
 import org.apache.nutch.util.NutchConfiguration;
+import org.apache.nutch.metrics.ShuffleAnalyzer;
 import org.apache.nutch.util.NutchJob;
 import org.apache.nutch.util.NutchTool;
 import org.slf4j.Logger;
@@ -160,6 +161,10 @@ public class IndexingJob extends NutchTool implements Tool {
             String.format(Locale.ROOT, "%6d", counter.getValue()),
             counter.getName());
       }
+
+      // Log shuffle analysis if enabled
+      ShuffleAnalyzer.logAnalysis(job, getConf());
+
       stopWatch.stop();
       LOG.info("Indexer: finished, elapsed: {} ms", stopWatch.getTime(
           TimeUnit.MILLISECONDS));

@@ -44,6 +44,7 @@ import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.nutch.metadata.Nutch;
 import org.apache.nutch.metrics.NutchMetrics;
+import org.apache.nutch.metrics.ShuffleAnalyzer;
 import org.apache.nutch.util.FSUtils;
 import org.apache.nutch.util.HadoopFSUtil;
 import org.apache.nutch.util.LockUtil;
@@ -143,6 +144,9 @@ public class CrawlDb extends NutchTool implements Tool {
     }
 
     CrawlDb.install(job, crawlDb);
+
+    // Log shuffle analysis if enabled
+    ShuffleAnalyzer.logAnalysis(job, getConf());
 
     if (filter) {
       long urlsFiltered = job.getCounters()

@@ -70,6 +70,7 @@ import org.apache.hadoop.util.ToolRunner;
 import org.apache.nutch.util.AbstractChecker;
 import org.apache.nutch.util.JexlUtil;
 import org.apache.nutch.util.NutchConfiguration;
+import org.apache.nutch.metrics.ShuffleAnalyzer;
 import org.apache.nutch.util.NutchJob;
 import org.apache.nutch.util.SegmentReaderUtil;
 import org.apache.nutch.util.StringUtil;
@@ -599,6 +600,9 @@ public class CrawlDbReader extends AbstractChecker implements Closeable {
       throw e;
     }
 
+    // Log shuffle analysis if enabled
+    ShuffleAnalyzer.logAnalysis(job, config);
+
     // reading the result
     SequenceFile.Reader[] readers = SegmentReaderUtil.getReaders(tmpFolder,
         config);
@@ -883,6 +887,9 @@ public class CrawlDbReader extends AbstractChecker implements Closeable {
       throw e;
     }
 
+    // Log shuffle analysis if enabled
+    ShuffleAnalyzer.logAnalysis(job, config);
+
     LOG.info("CrawlDb dump: done");
   }
 
@@ -992,6 +999,9 @@ public class CrawlDbReader extends AbstractChecker implements Closeable {
       throw e;
     }
 
+    // Log shuffle analysis if enabled
+    ShuffleAnalyzer.logAnalysis(job, config);
+
     LOG.info("CrawlDb topN: collecting topN scores.");
     job = Job.getInstance(config, "Nutch CrawlDbReader: topN collect " + crawlDb);
     job.getConfiguration().setLong("db.reader.topn", topN);
@@ -1022,6 +1032,9 @@ public class CrawlDbReader extends AbstractChecker implements Closeable {
       fs.delete(tempDir, true);
       throw e;
     }
+
+    // Log shuffle analysis if enabled
+    ShuffleAnalyzer.logAnalysis(job, config);
 
     fs.delete(tempDir, true);
     LOG.info("CrawlDb topN: done");

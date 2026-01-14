@@ -59,6 +59,7 @@ import org.apache.nutch.crawl.NutchWritable;
 import org.apache.nutch.crawl.CrawlDatum;
 import org.apache.nutch.metadata.Nutch;
 import org.apache.nutch.metrics.NutchMetrics;
+import org.apache.nutch.metrics.ShuffleAnalyzer;
 import org.apache.nutch.net.URLFilters;
 import org.apache.nutch.net.URLNormalizers;
 import org.apache.nutch.parse.Outlink;
@@ -613,6 +614,10 @@ public class WebGraph extends Configured implements Tool {
       FSUtils.replace(fs, outlinkDb, tempOutlinkDb, true);
       if (!preserveBackup && fs.exists(oldOutlinkDb))
         fs.delete(oldOutlinkDb, true);
+
+      // Log shuffle analysis if enabled
+      ShuffleAnalyzer.logAnalysis(outlinkJob, getConf());
+
       LOG.info("OutlinkDb: finished");
     } catch (IOException | InterruptedException | ClassNotFoundException e) {
       LOG.error("OutlinkDb failed:", e);
@@ -656,6 +661,10 @@ public class WebGraph extends Configured implements Tool {
       }
       LOG.info("InlinkDb: installing {}", inlinkDb);
       FSUtils.replace(fs, inlinkDb, tempInlinkDb, true);
+
+      // Log shuffle analysis if enabled
+      ShuffleAnalyzer.logAnalysis(inlinkJob, getConf());
+
       LOG.info("InlinkDb: finished");
     } catch (IOException | InterruptedException | ClassNotFoundException e) {
       LOG.error("InlinkDb failed:", e);
@@ -701,6 +710,10 @@ public class WebGraph extends Configured implements Tool {
       }
       LOG.info("NodeDb: installing {}", nodeDb);
       FSUtils.replace(fs, nodeDb, tempNodeDb, true);
+
+      // Log shuffle analysis if enabled
+      ShuffleAnalyzer.logAnalysis(nodeJob, getConf());
+
       LOG.info("NodeDb: finished");
     } catch (IOException | InterruptedException | ClassNotFoundException e) {
       LOG.error("NodeDb failed:", e);

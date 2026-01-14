@@ -68,6 +68,7 @@ import org.apache.hadoop.io.WritableComparator;
 import org.apache.nutch.hostdb.HostDatum;
 import org.apache.nutch.metadata.Nutch;
 import org.apache.nutch.metrics.NutchMetrics;
+import org.apache.nutch.metrics.ShuffleAnalyzer;
 import org.apache.nutch.net.URLFilterException;
 import org.apache.nutch.net.URLFilters;
 import org.apache.nutch.net.URLNormalizers;
@@ -967,6 +968,9 @@ public class Generator extends NutchTool implements Tool {
       throw e;
     }
 
+    // Log shuffle analysis if enabled
+    ShuffleAnalyzer.logAnalysis(job, getConf());
+
     LOG.info("Generator: number of items rejected during selection:");
     for (Counter counter : job.getCounters().getGroup("Generator")) {
       LOG.info("Generator: {}  {}",
@@ -1038,6 +1042,9 @@ public class Generator extends NutchTool implements Tool {
           throw new RuntimeException(message);
         }
         CrawlDb.install(job, dbDir);
+
+        // Log shuffle analysis if enabled
+        ShuffleAnalyzer.logAnalysis(job, getConf());
       } catch (IOException | InterruptedException | ClassNotFoundException e) {
         LOG.error("Generator job failed: {}", e.getMessage());
         NutchJob.cleanupAfterFailure(tempDir, lock, fs);

@@ -62,6 +62,7 @@ import org.apache.hadoop.mapreduce.lib.output.SequenceFileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
+import org.apache.nutch.metrics.ShuffleAnalyzer;
 import org.apache.nutch.util.FSUtils;
 import org.apache.nutch.util.NutchConfiguration;
 import org.apache.nutch.util.NutchJob;
@@ -124,6 +125,9 @@ public class LinkRank extends Configured implements Tool {
       LOG.error("Link counter job failed:", e);
       throw e;
     }
+
+    // Log shuffle analysis if enabled
+    ShuffleAnalyzer.logAnalysis(counter, getConf());
     
     LOG.info("Finished link counter job");
 
@@ -221,6 +225,10 @@ public class LinkRank extends Configured implements Tool {
       LOG.error("Initialization job failed:", e);
       throw e;
     }
+
+    // Log shuffle analysis if enabled
+    ShuffleAnalyzer.logAnalysis(initializer, getConf());
+
     LOG.info("Finished initialization job.");
   }
 
@@ -273,6 +281,10 @@ public class LinkRank extends Configured implements Tool {
       LOG.error("Inverter job failed:", e);
       throw e;
     }
+
+    // Log shuffle analysis if enabled
+    ShuffleAnalyzer.logAnalysis(inverter, getConf());
+
     LOG.info("Finished inverter job.");
   }
 
@@ -334,6 +346,10 @@ public class LinkRank extends Configured implements Tool {
       LOG.error("Analysis job failed:", e);
       throw e;
     }
+
+    // Log shuffle analysis if enabled
+    ShuffleAnalyzer.logAnalysis(analyzer, getConf());
+
     LOG.info("Finished analysis job.");
   }
 

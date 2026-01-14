@@ -69,6 +69,7 @@ import org.apache.nutch.parse.ParseText;
 import org.apache.nutch.protocol.Content;
 import org.apache.nutch.util.HadoopFSUtil;
 import org.apache.nutch.util.NutchConfiguration;
+import org.apache.nutch.metrics.ShuffleAnalyzer;
 import org.apache.nutch.util.NutchJob;
 import org.apache.nutch.util.SegmentReaderUtil;
 
@@ -282,6 +283,9 @@ public class SegmentReader extends Configured implements Tool {
       LOG.error(StringUtils.stringifyException(e));
       throw e;
     }
+
+    // Log shuffle analysis if enabled
+    ShuffleAnalyzer.logAnalysis(job, getConf());
 
     // concatenate the output
     Path dumpFile = new Path(output, conf.get("segment.dump.dir", "dump"));

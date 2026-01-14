@@ -37,6 +37,7 @@ import org.apache.hadoop.util.ToolRunner;
 import org.apache.nutch.crawl.CrawlDatum;
 import org.apache.nutch.crawl.CrawlDb;
 import org.apache.nutch.metrics.NutchMetrics;
+import org.apache.nutch.metrics.ShuffleAnalyzer;
 import org.apache.nutch.util.NutchConfiguration;
 import org.apache.nutch.util.NutchJob;
 import org.slf4j.Logger;
@@ -158,6 +159,9 @@ public class CleaningJob implements Tool {
       LOG.error(StringUtils.stringifyException(e));
       throw e;
     }
+
+    // Log shuffle analysis if enabled
+    ShuffleAnalyzer.logAnalysis(job, getConf());
 
     stopWatch.stop();
     LOG.info("CleaningJob: finished, elapsed: {} ms", stopWatch.getTime(TimeUnit.MILLISECONDS));

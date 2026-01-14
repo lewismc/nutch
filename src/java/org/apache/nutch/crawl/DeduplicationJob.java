@@ -46,6 +46,7 @@ import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.nutch.metadata.Nutch;
 import org.apache.nutch.metrics.NutchMetrics;
+import org.apache.nutch.metrics.ShuffleAnalyzer;
 import org.apache.nutch.util.NutchConfiguration;
 import org.apache.nutch.util.NutchJob;
 import org.apache.nutch.util.NutchTool;
@@ -339,6 +340,9 @@ public class DeduplicationJob extends NutchTool implements Tool {
           .findCounter(NutchMetrics.GROUP_DEDUP, NutchMetrics.DEDUP_DOCUMENTS_MARKED_DUPLICATE_TOTAL)
           .getValue();
       LOG.info("Deduplication: {} documents marked as duplicates", dups);
+
+      // Log shuffle analysis if enabled
+      ShuffleAnalyzer.logAnalysis(job, getConf());
     } catch (IOException | InterruptedException | ClassNotFoundException e) {
       LOG.error("DeduplicationJob:", e);
       fs.delete(tempDir, true);
@@ -373,6 +377,9 @@ public class DeduplicationJob extends NutchTool implements Tool {
     }
 
     CrawlDb.install(mergeJob, crawlDb);
+
+    // Log shuffle analysis if enabled
+    ShuffleAnalyzer.logAnalysis(mergeJob, getConf());
 
     // clean up
     fs.delete(tempDir, true);

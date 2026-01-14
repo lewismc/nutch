@@ -37,6 +37,7 @@ import org.apache.hadoop.util.ToolRunner;
 
 import org.apache.nutch.metadata.Nutch;
 import org.apache.nutch.metrics.NutchMetrics;
+import org.apache.nutch.metrics.ShuffleAnalyzer;
 import org.apache.nutch.net.URLFilters;
 import org.apache.nutch.net.URLNormalizers;
 import org.apache.nutch.scoring.ScoringFilterException;
@@ -458,6 +459,9 @@ public class Injector extends NutchTool implements Tool {
 
       // save output and perform cleanup
       CrawlDb.install(job, crawlDb);
+
+      // Log shuffle analysis if enabled
+      ShuffleAnalyzer.logAnalysis(job, getConf());
 
       if (LOG.isInfoEnabled()) {
         long urlsInjected = job.getCounters()
