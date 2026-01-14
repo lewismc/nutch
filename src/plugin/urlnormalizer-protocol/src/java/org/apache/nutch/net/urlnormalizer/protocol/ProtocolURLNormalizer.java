@@ -51,6 +51,7 @@ import org.apache.nutch.util.SuffixStringMatcher;
  * See {@link org.apache.nutch.net.urlnormalizer.protocol} for details and
  * configuration.
  */
+@org.pf4j.Extension
 public class ProtocolURLNormalizer implements URLNormalizer {
 
   private Configuration conf;

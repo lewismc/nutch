@@ -39,6 +39,7 @@ import org.apache.nutch.util.URLUtil;
  * Filters URLs based on a file containing domain suffixes, domain names, and
  * hostnames. Only a URL that matches one of the suffixes, domains, or hosts
  * present in the file is allowed.
+ * <p>This class is annotated as a PF4J extension.
  * </p>
  * 
  * <p>
@@ -74,6 +75,7 @@ import org.apache.nutch.util.URLUtil;
  * </ul>
  * 
  */
+@org.pf4j.Extension
 public class DomainURLFilter implements URLFilter {
 
   private static final Logger LOG = LoggerFactory

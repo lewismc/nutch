@@ -26,6 +26,7 @@ import org.apache.nutch.util.JexlUtil;
 
 import java.util.Map;
 
+@org.pf4j.Extension
 public class JexlExchange implements Exchange {
 
   private static final String EXPRESSION_KEY = "expr";

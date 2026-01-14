@@ -27,7 +27,9 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.lang.invoke.MethodHandles;
 import java.net.URL;
+import org.pf4j.Extension;
 
+@Extension
 public class Http extends HttpBase {
 
   protected static final Logger LOG = LoggerFactory

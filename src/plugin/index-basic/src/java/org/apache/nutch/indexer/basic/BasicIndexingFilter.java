@@ -34,6 +34,7 @@ import java.net.URL;
 import java.util.Date;
 
 import org.apache.hadoop.conf.Configuration;
+import org.pf4j.Extension;
 
 /**
  * Adds basic searchable fields to a document. The fields added are : domain,
@@ -42,7 +43,10 @@ import org.apache.hadoop.conf.Configuration;
  * {@code indexer.max.title.length} in nutch-default.xml. (As per NUTCH-1004, a
  * zero-length title is not added) content is truncated as per
  * {@code indexer.max.content.length} in nutch-default.xml.
+ * 
+ * <p>This extension is registered with PF4J via the {@link Extension} annotation.</p>
  */
+@Extension
 public class BasicIndexingFilter implements IndexingFilter {
 
   private int MAX_TITLE_LENGTH;

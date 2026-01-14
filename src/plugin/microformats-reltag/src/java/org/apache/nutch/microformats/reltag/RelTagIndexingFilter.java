@@ -34,6 +34,7 @@ import org.apache.hadoop.conf.Configuration;
  *      http://www.microformats.org/wiki/rel-tag</a>
  * @author J&eacute;r&ocirc;me Charron
  */
+@org.pf4j.Extension
 public class RelTagIndexingFilter implements IndexingFilter {
 
   private Configuration conf;

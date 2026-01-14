@@ -27,6 +27,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.nutch.urlfilter.api.RegexRule;
 import org.apache.nutch.urlfilter.api.RegexURLFilterBase;
 import org.apache.nutch.util.NutchConfiguration;
+import org.pf4j.Extension;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,6 +35,7 @@ import org.slf4j.LoggerFactory;
  * Filters URLs based on a file of regular expressions using the
  * {@link java.util.regex Java Regex implementation}.
  */
+@Extension
 public class RegexURLFilter extends RegexURLFilterBase {
 
   public static final String URLFILTER_REGEX_FILE = "urlfilter.regex.file";

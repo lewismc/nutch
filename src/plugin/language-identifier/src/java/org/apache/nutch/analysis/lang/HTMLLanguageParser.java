@@ -40,6 +40,7 @@ import org.w3c.dom.Element;
 import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 
+@org.pf4j.Extension
 public class HTMLLanguageParser implements HtmlParseFilter {
 
   private static final Logger LOG = LoggerFactory

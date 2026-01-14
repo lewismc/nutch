@@ -149,9 +149,12 @@
   <!-- ================================================================== -->
   <!-- Make plugin .jar                                                   -->
   <!-- ================================================================== -->
-  <!--                                                                    -->
+  <!-- Includes plugin.properties in JAR root for PF4J discovery          -->
   <!-- ================================================================== -->
   <target name="jar" depends="compile">
+    <!-- Copy plugin.properties to classes dir if it exists (for inclusion in JAR) -->
+    <copy file="plugin.properties" todir="${build.classes}" 
+          failonerror="false" preservelastmodified="true"/>
     <jar
       jarfile="${build.dir}/${name}.jar"
       basedir="${build.classes}"
@@ -159,6 +162,9 @@
   </target>
 
   <target name="jar-core" depends="compile-core">
+    <!-- Copy plugin.properties to classes dir if it exists (for inclusion in JAR) -->
+    <copy file="plugin.properties" todir="${build.classes}" 
+          failonerror="false" preservelastmodified="true"/>
     <jar
         jarfile="${build.dir}/${name}.jar"
         basedir="${build.classes}"
@@ -168,18 +174,34 @@
   <!-- ================================================================== -->
   <!-- Deploy plugin to ${deploy.dir}                                     -->
   <!-- ================================================================== -->
-  <!--                                                                    -->
+  <!-- Supports both legacy plugin.xml and PF4J plugin.properties         -->
   <!-- ================================================================== -->
   <target name="deploy" depends="jar, deps-test">
     <mkdir dir="${deploy.dir}"/>
+    <!-- Copy legacy plugin.xml manifest -->
     <copy file="plugin.xml" todir="${deploy.dir}" 
           preservelastmodified="true"/>
+    <!-- Copy PF4J plugin.properties if it exists (hybrid mode) -->
+    <copy file="plugin.properties" todir="${deploy.dir}" 
+          preservelastmodified="true" failonerror="false"/>
     <available property="lib-available"
                  file="${build.dir}/${name}.jar"/>
     <antcall target="copy-generated-lib"/>
     <copy todir="${deploy.dir}" flatten="true">
       <fileset refid="lib.jars"/>
     </copy>
+    <!-- Generate PF4J extensions index if plugin uses @Extension annotations -->
+    <antcall target="generate-pf4j-index"/>
+  </target>
+  
+  <!-- ================================================================== -->
+  <!-- Generate PF4J extensions.idx for @Extension annotated classes      -->
+  <!-- ================================================================== -->
+  <target name="generate-pf4j-index">
+    <mkdir dir="${build.classes}/META-INF"/>
+    <!-- PF4J annotation processor generates extensions.idx automatically -->
+    <!-- This target ensures the META-INF directory exists -->
+    <!-- For manual index creation, a custom task could be added here -->
   </target>
 	
   <target name="copy-generated-lib" if="lib-available">

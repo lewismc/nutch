@@ -29,6 +29,7 @@ import org.apache.nutch.indexer.IndexingException;
 import org.apache.nutch.indexer.IndexingFilter;
 import org.apache.nutch.indexer.NutchDocument;
 import org.apache.nutch.parse.Parse;
+import org.pf4j.Extension;
 
 /**
  * Indexer which can be configured to extract metadata from the crawldb, parse
@@ -36,6 +37,7 @@ import org.apache.nutch.parse.Parse;
  * "index.parse.md" or "index.content.md" who's values are comma-delimited
  * <code>key1,key2,key3</code>.
  */
+@Extension
 public class MetadataIndexer implements IndexingFilter {
   private Configuration conf;
   private String[] dbFieldnames;

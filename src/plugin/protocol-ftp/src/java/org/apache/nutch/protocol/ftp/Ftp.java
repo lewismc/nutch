@@ -39,6 +39,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.List;
 import java.io.IOException;
+import org.pf4j.Extension;
 
 /**
  * This class is a protocol plugin used for ftp: scheme. It creates
@@ -48,6 +49,7 @@ import java.io.IOException;
  * {@code ftp.password}, {@code ftp.keep.connection} and {@code ftp.follow.talk}
  * . For details see "FTP properties" section in {@code nutch-default.xml}.
  */
+@Extension
 public class Ftp implements Protocol {
 
   protected static final Logger LOG = LoggerFactory

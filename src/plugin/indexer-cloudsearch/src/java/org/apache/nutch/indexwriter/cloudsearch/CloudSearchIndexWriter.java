@@ -56,10 +56,12 @@ import com.amazonaws.services.cloudsearchv2.model.DomainStatus;
 import com.amazonaws.services.cloudsearchv2.model.IndexFieldStatus;
 import com.amazonaws.util.json.JSONException;
 import com.amazonaws.util.json.JSONObject;
+import org.pf4j.Extension;
 
 /**
  * Writes documents to CloudSearch.
  */
+@Extension
 public class CloudSearchIndexWriter implements IndexWriter {
   private static final Logger LOG = LoggerFactory
       .getLogger(MethodHandles.lookup().lookupClass());

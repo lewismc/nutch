@@ -46,6 +46,7 @@ import org.w3c.dom.DocumentFragment;
  * RegexParseFilter. If a regular expression matches either HTML or 
  * extracted text, a configurable field is set to true.
  */
+@org.pf4j.Extension
 public class RegexParseFilter implements HtmlParseFilter {
 
   private static final Logger LOG = LoggerFactory

@@ -38,6 +38,7 @@ import org.apache.nutch.parse.ParseData;
 import org.apache.nutch.protocol.Content;
 import org.apache.nutch.scoring.ScoringFilter;
 import org.apache.nutch.scoring.ScoringFilterException;
+import org.pf4j.Extension;
 
 /**
  * This scoring filter limits the number of hops from the initial seed urls. If
@@ -45,6 +46,7 @@ import org.apache.nutch.scoring.ScoringFilterException;
  * set in the injector file) then all outlinks from that url are discarded,
  * effectively stopping further crawling along this path.
  */
+@Extension
 public class DepthScoringFilter extends Configured implements ScoringFilter {
 
   private static final Logger LOG = LoggerFactory

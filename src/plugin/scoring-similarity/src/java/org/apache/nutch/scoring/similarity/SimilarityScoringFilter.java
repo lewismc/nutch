@@ -30,6 +30,7 @@ import org.apache.nutch.scoring.AbstractScoringFilter;
 import org.apache.nutch.scoring.ScoringFilterException;
 import org.apache.nutch.scoring.similarity.cosine.CosineSimilarity;
 
+@org.pf4j.Extension
 public class SimilarityScoringFilter extends AbstractScoringFilter {
 
   private Configuration conf;

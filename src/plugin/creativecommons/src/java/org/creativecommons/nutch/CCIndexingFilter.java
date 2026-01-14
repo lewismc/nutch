@@ -40,6 +40,7 @@ import java.util.StringTokenizer;
 import java.net.MalformedURLException;
 
 /** Adds basic searchable fields to a document. */
+@org.pf4j.Extension
 public class CCIndexingFilter implements IndexingFilter {
   private static final Logger LOG = LoggerFactory
       .getLogger(MethodHandles.lookup().lookupClass());

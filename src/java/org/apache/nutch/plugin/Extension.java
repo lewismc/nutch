@@ -26,7 +26,13 @@ import org.apache.hadoop.conf.Configurable;
  * An <code>Extension</code> is a kind of listener descriptor that will be
  * installed on a concrete <code>ExtensionPoint</code> that acts as kind of
  * Publisher.
+ * 
+ * @deprecated This class is part of the legacy XML-based plugin system.
+ *             Extensions are now registered using PF4J's {@code @Extension} annotation
+ *             on implementation classes. New plugins should annotate their implementation
+ *             classes with {@code @org.pf4j.Extension} instead of using XML declarations.
  */
+@Deprecated
 public class Extension {
   private PluginDescriptor fDescriptor;
   private String fId;

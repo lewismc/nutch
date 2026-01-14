@@ -28,6 +28,7 @@ import dk.brics.automaton.RegExp;
 import dk.brics.automaton.RunAutomaton;
 import org.apache.nutch.urlfilter.api.RegexRule;
 import org.apache.nutch.urlfilter.api.RegexURLFilterBase;
+import org.pf4j.Extension;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,6 +39,7 @@ import org.slf4j.LoggerFactory;
  * 
  * @see <a href="https://www.brics.dk/automaton/">dk.brics.automaton</a>
  */
+@Extension
 public class AutomatonURLFilter extends RegexURLFilterBase {
 
   public static final String URLFILTER_AUTOMATON_FILE = "urlfilter.automaton.file";

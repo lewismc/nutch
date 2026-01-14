@@ -40,6 +40,7 @@ import org.apache.nutch.util.URLUtil;
  * <code>co.uk</code>. See also {@link URLUtil#getDomainSuffix(URL)}.
  * </p>
  */
+@org.pf4j.Extension
 public class TLDIndexingFilter implements IndexingFilter {
   private static final Logger LOG = LoggerFactory
       .getLogger(MethodHandles.lookup().lookupClass());

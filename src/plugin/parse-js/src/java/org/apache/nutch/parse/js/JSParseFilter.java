@@ -48,6 +48,7 @@ import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
+import org.pf4j.Extension;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -56,6 +57,7 @@ import org.slf4j.LoggerFactory;
  * snippets. The general idea of a two-pass regex matching comes from Heritrix.
  * Parts of the code come from OutlinkExtractor.java
  */
+@Extension
 public class JSParseFilter implements HtmlParseFilter, Parser {
   private static final Logger LOG = LoggerFactory
       .getLogger(MethodHandles.lookup().lookupClass());

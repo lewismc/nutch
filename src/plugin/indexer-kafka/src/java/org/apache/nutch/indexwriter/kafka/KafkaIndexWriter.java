@@ -42,10 +42,12 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import com.fasterxml.jackson.databind.JsonNode;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.pf4j.Extension;
 
 /**
  * Sends Nutch documents to a configured Kafka Cluster
  */
+@Extension
 public class KafkaIndexWriter implements IndexWriter {
   public static Logger LOG = LoggerFactory.getLogger(KafkaIndexWriter.class);
 

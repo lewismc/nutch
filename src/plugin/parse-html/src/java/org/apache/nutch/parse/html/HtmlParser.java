@@ -53,7 +53,15 @@ import org.apache.nutch.protocol.Content;
 import org.apache.nutch.util.EncodingDetector;
 import org.apache.nutch.util.NutchConfiguration;
 import org.cyberneko.html.parsers.DOMFragmentParser;
+import org.pf4j.Extension;
 
+/**
+ * HTML Parser implementation using NekoHTML or TagSoup.
+ * 
+ * <p>This extension is registered with PF4J via the {@link Extension} annotation
+ * and provides parsing for text/html and application/xhtml+xml content types.</p>
+ */
+@Extension
 public class HtmlParser implements Parser {
   private static final Logger LOG = LoggerFactory
       .getLogger(MethodHandles.lookup().lookupClass());

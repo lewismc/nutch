@@ -47,6 +47,7 @@ import org.apache.hadoop.conf.Configuration;
  * @author Sami Siren
  * @author Jerome Charron
  */
+@org.pf4j.Extension
 public class LanguageIndexingFilter implements IndexingFilter {
 
   private Configuration conf;

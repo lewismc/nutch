@@ -30,6 +30,7 @@ import org.apache.hadoop.util.StringUtils;
 import org.apache.nutch.indexer.IndexWriter;
 import org.apache.nutch.indexer.IndexWriterParams;
 import org.apache.nutch.indexer.NutchDocument;
+import org.pf4j.Extension;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,6 +39,7 @@ import org.slf4j.LoggerFactory;
  * plain text file for debugging purposes. Possible actions are delete, update
  * and add.
  */
+@Extension
 public class DummyIndexWriter implements IndexWriter {
 
   private static final Logger LOG = LoggerFactory

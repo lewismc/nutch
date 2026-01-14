@@ -99,6 +99,7 @@ import java.util.regex.PatternSyntaxException;
  * In addition, it can filter based on the length of the whole URL, its path element or
  * its query element. See <code>urlfilter.fast.url.*</code> configurations.
  */
+@org.pf4j.Extension
 public class FastURLFilter implements URLFilter {
 
   protected static final Logger LOG = LoggerFactory

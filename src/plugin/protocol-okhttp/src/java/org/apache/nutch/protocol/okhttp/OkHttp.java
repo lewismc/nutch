@@ -64,8 +64,10 @@ import okhttp3.Protocol;
 import okhttp3.Request;
 import okhttp3.brotli.Brotli;
 import okhttp3.zstd.Zstd;
+import org.pf4j.Extension;
 
 
+@Extension
 public class OkHttp extends HttpBase {
 
   protected static final Logger LOG = LoggerFactory

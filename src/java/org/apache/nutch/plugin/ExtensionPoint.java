@@ -23,7 +23,13 @@ import java.util.ArrayList;
  * point.
  * 
  * @author joa23
+ * 
+ * @deprecated This class is part of the legacy XML-based plugin system. Extension points
+ *             are now defined using PF4J's {@code ExtensionPoint} interface marker. New
+ *             extension point interfaces should extend {@code org.pf4j.ExtensionPoint}
+ *             directly (via the {@code Pluggable} interface).
  */
+@Deprecated
 public class ExtensionPoint {
   private String ftId;
   private String fName;

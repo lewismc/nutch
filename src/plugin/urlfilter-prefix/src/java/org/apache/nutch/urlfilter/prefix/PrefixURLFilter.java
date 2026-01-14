@@ -46,6 +46,7 @@ import java.util.ArrayList;
  * The format of this file is one URL prefix per line.
  * </p>
  */
+@org.pf4j.Extension
 public class PrefixURLFilter implements URLFilter {
 
   private static final Logger LOG = LoggerFactory

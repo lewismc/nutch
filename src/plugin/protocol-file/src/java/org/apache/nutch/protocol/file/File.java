@@ -36,6 +36,7 @@ import org.apache.nutch.protocol.RobotRulesParser;
 import org.apache.nutch.util.NutchConfiguration;
 
 import crawlercommons.robots.BaseRobotRules;
+import org.pf4j.Extension;
 
 /**
  * This class is a protocol plugin used for file: scheme. It creates
@@ -46,6 +47,7 @@ import crawlercommons.robots.BaseRobotRules;
  * 
  * @author John Xing
  */
+@Extension
 public class File implements Protocol {
 
   protected static final Logger LOG = LoggerFactory

@@ -20,6 +20,7 @@ import java.net.MalformedURLException;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.nutch.net.URLNormalizer;
+import org.pf4j.Extension;
 
 /**
  * This URLNormalizer doesn't change urls. It is sometimes useful if for a given
@@ -28,6 +29,7 @@ import org.apache.nutch.net.URLNormalizer;
  * 
  * @author Andrzej Bialecki
  */
+@Extension
 public class PassURLNormalizer implements URLNormalizer {
 
   private Configuration conf;

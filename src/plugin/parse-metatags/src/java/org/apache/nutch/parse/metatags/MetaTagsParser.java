@@ -32,6 +32,7 @@ import org.apache.nutch.parse.ParseResult;
 import org.apache.nutch.protocol.Content;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.pf4j.Extension;
 import org.w3c.dom.DocumentFragment;
 
 /**
@@ -39,6 +40,7 @@ import org.w3c.dom.DocumentFragment;
  * metadata so that they can be indexed with the index-metadata plugin with the
  * prefix 'metatag.'. Metatags are matched ignoring case.
  */
+@Extension
 public class MetaTagsParser implements HtmlParseFilter {
 
   private static final Logger LOG = LoggerFactory

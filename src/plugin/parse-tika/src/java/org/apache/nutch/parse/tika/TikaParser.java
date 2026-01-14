@@ -58,12 +58,14 @@ import org.apache.tika.sax.TeeContentHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.w3c.dom.DocumentFragment;
+import org.pf4j.Extension;
 import org.xml.sax.ContentHandler;
 
 /**
  * Wrapper for Tika parsers. Mimics the HTMLParser but using the XHTML
  * representation returned by Tika as SAX events
  */
+@Extension
 public class TikaParser implements org.apache.nutch.parse.Parser {
 
   private static final Logger LOG = LoggerFactory

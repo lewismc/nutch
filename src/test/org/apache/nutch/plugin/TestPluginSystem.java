@@ -36,7 +36,24 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Unit tests for the plugin system
+ * Unit tests for the legacy XML-based plugin system.
+ * 
+ * <p><b>Note:</b> This test class validates the <em>legacy</em> Nutch plugin system
+ * which uses {@code plugin.xml} manifest files and the following deprecated classes:</p>
+ * <ul>
+ *   <li>{@link PluginManifestParser}</li>
+ *   <li>{@link PluginDescriptor}</li>
+ *   <li>{@link ExtensionPoint}</li>
+ *   <li>{@link Extension}</li>
+ * </ul>
+ * 
+ * <p>New plugins should use the PF4J-based system with {@code @org.pf4j.Extension}
+ * annotations and {@code plugin.properties} files. For tests of the PF4J-based
+ * plugin system, see the test classes in {@code org.apache.nutch.plugin.pf4j}.</p>
+ * 
+ * @see org.apache.nutch.plugin.pf4j.TestNutchPluginManager
+ * @see org.apache.nutch.plugin.pf4j.TestNutchExtensionFactory
+ * @see org.apache.nutch.plugin.pf4j.TestExtensionHelper
  */
 public class TestPluginSystem {
   private int fPluginCount;

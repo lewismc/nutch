@@ -27,6 +27,7 @@ import org.apache.nutch.protocol.Content;
 import org.apache.nutch.scoring.AbstractScoringFilter;
 import org.apache.nutch.scoring.ScoringFilterException;
 
+@org.pf4j.Extension
 public class LinkAnalysisScoringFilter extends AbstractScoringFilter {
 
   private float normalizedScore = 1.00f;

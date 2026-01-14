@@ -55,6 +55,9 @@
 		<dependency org="org.apache.commons" name="commons-jexl3" rev="3.6.0" conf="*->default" />
 		<dependency org="com.tdunning" name="t-digest" rev="3.3" />
 
+		<!-- PF4J Plugin Framework -->
+		<dependency org="org.pf4j" name="pf4j" rev="3.14.1" conf="*->default" />
+
 		<!-- Hadoop Dependencies -->
 		<dependency org="org.apache.hadoop" name="hadoop-common" rev="3.4.2" conf="*->default">
 			<exclude org="ch.qos.reload4j" name="*"/>

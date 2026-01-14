@@ -37,6 +37,7 @@ import org.apache.nutch.parse.ParseData;
 import org.apache.nutch.protocol.Content;
 import org.apache.nutch.scoring.ScoringFilter;
 import org.apache.nutch.scoring.ScoringFilterException;
+import org.pf4j.Extension;
 
 /**
  * This plugin implements a variant of an Online Page Importance Computation
@@ -46,6 +47,7 @@ import org.apache.nutch.scoring.ScoringFilterException;
  * 
  * @author Andrzej Bialecki
  */
+@Extension
 public class OPICScoringFilter implements ScoringFilter {
 
   private static final Logger LOG = LoggerFactory

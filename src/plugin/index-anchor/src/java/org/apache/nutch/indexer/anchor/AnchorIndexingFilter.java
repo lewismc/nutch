@@ -27,6 +27,7 @@ import org.apache.nutch.indexer.IndexingException;
 import org.apache.nutch.indexer.IndexingFilter;
 import org.apache.nutch.indexer.NutchDocument;
 import org.apache.nutch.parse.Parse;
+import org.pf4j.Extension;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,6 +37,7 @@ import org.slf4j.LoggerFactory;
  * 
  * See {@code anchorIndexingFilter.deduplicate} in nutch-default.xml.
  */
+@Extension
 public class AnchorIndexingFilter implements IndexingFilter {
 
   private static final Logger LOG = LoggerFactory

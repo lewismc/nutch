@@ -45,6 +45,7 @@ import java.util.ArrayList;
  * given in parsefilter.naivebayes.wordlist. CAUTION: Set the parser.timeout to
  * -1 or a bigger value than 30, when using this classifier.
  */
+@org.pf4j.Extension
 public class NaiveBayesParseFilter implements HtmlParseFilter {
 
   private static final Logger LOG = LoggerFactory

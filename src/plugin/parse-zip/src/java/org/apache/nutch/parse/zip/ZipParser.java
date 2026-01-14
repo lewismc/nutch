@@ -39,11 +39,13 @@ import org.apache.nutch.parse.Parser;
 import org.apache.nutch.protocol.Content;
 import org.apache.nutch.util.NutchConfiguration;
 import org.apache.hadoop.conf.Configuration;
+import org.pf4j.Extension;
 
 /**
  * ZipParser class based on MSPowerPointParser class by Stephan Strittmatter.
  * Nutch parse plugin for zip files - Content Type : application/zip
  */
+@Extension
 public class ZipParser implements Parser {
 
   private static final Logger LOG = LoggerFactory

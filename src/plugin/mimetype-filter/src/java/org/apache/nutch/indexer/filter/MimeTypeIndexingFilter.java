@@ -69,6 +69,7 @@ import java.util.List;
  * of documents based on the MIME Type detected by Tika
  *
  */
+@org.pf4j.Extension
 public class MimeTypeIndexingFilter implements IndexingFilter {
 
   public static final String MIMEFILTER_REGEX_FILE = "mimetype.filter.file";

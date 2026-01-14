@@ -35,6 +35,7 @@ import org.apache.nutch.scoring.ScoringFilterException;
  * 
  * {@link org.apache.nutch.scoring.urlmeta}
  */
+@org.pf4j.Extension
 public class URLMetaScoringFilter extends AbstractScoringFilter {
 
   private static final String CONF_PROPERTY = "urlmeta.tags";

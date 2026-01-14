@@ -33,6 +33,7 @@ import org.w3c.dom.NodeList;
  * SubCollection represents a subset of index, you can define url patterns that
  * will indicate that particular page (url) is part of SubCollection.
  */
+@org.pf4j.Extension
 public class Subcollection extends Configured implements URLFilter {
 
   public static final String TAG_COLLECTIONS = "subcollections";

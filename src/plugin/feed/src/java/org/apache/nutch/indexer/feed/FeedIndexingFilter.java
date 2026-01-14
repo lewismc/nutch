@@ -40,6 +40,7 @@ import org.apache.nutch.parse.ParseData;
  *        index.
  * 
  */
+@org.pf4j.Extension
 public class FeedIndexingFilter implements IndexingFilter {
 
   public static final String dateFormatStr = "yyyyMMddHHmm";

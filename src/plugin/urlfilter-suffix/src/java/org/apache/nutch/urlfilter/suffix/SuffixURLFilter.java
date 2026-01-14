@@ -120,6 +120,7 @@ import java.net.MalformedURLException;
  * </pre>
  * </section>
  */
+@org.pf4j.Extension
 public class SuffixURLFilter implements URLFilter {
 
   private static final Logger LOG = LoggerFactory

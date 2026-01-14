@@ -45,6 +45,7 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.w3c.dom.Text;
+import org.pf4j.Extension;
 import org.xml.sax.InputSource;
 
 /**
@@ -64,6 +65,7 @@ import org.xml.sax.InputSource;
  * @author Luke Baker
  * @author Andrzej Bialecki
  */
+@Extension
 public class RegexURLNormalizer extends Configured implements URLNormalizer {
 
   private static final Logger LOG = LoggerFactory

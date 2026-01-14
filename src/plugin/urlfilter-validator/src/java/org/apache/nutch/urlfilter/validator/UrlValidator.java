@@ -53,6 +53,7 @@ import org.apache.nutch.net.URLFilter;
  *      Identifiers (URI): Generic Syntax </a>
  * 
  */
+@org.pf4j.Extension
 public class UrlValidator implements URLFilter {
 
   private static final String ALPHA_CHARS = "a-zA-Z";

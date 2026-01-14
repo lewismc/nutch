@@ -49,6 +49,7 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import org.xml.sax.InputSource;
 
 /** Adds metadata identifying the Creative Commons license used, if any. */
+@org.pf4j.Extension
 public class CCParseFilter implements HtmlParseFilter {
   private static final Logger LOG = LoggerFactory
       .getLogger(MethodHandles.lookup().lookupClass());

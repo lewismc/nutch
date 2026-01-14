@@ -27,6 +27,7 @@ import org.apache.nutch.indexer.NutchDocument;
 import org.apache.nutch.parse.Parse;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.conf.Configuration;
+import org.pf4j.Extension;
 
 /**
  * A simple plugin called at indexing that adds fields with static data. You can
@@ -34,7 +35,7 @@ import org.apache.hadoop.conf.Configuration;
  * collections can't be created by urlpatterns, like in subcollection, but on a
  * job-basis.
  */
-
+@Extension
 public class StaticFieldIndexer implements IndexingFilter {
   private Configuration conf;
   private HashMap<String, String[]> fields;

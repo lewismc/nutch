@@ -35,7 +35,11 @@ import java.util.List;
  * <code>PluginClassLoader</code>. Exported libraries are available for
  * <code>PluginClassLoader</code> of plugins that depends on these plugins.
  * 
+ * @deprecated This class is part of the legacy XML-based plugin system. PF4J manages
+ *             class loading internally with its own classloader implementations.
+ *             Use PF4J's classloader mechanisms instead.
  */
+@Deprecated
 public class PluginClassLoader extends URLClassLoader {
 
   private URL[] urls;

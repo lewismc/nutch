@@ -34,6 +34,7 @@ import org.slf4j.LoggerFactory;
  * removed by an indexer. If a page hasn't been linked to after markOrphanAfter
  * seconds, the page is removed from the CrawlDB.
  */
+@org.pf4j.Extension
 public class OrphanScoringFilter extends AbstractScoringFilter {
   private static final Logger LOG = LoggerFactory
       .getLogger(OrphanScoringFilter.class);

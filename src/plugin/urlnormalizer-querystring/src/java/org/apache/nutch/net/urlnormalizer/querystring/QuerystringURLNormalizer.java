@@ -25,6 +25,7 @@ import java.util.List;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.nutch.net.URLNormalizer;
+import org.pf4j.Extension;
 
 /**
  * URL normalizer plugin for normalizing query strings but sorting query string
@@ -32,6 +33,7 @@ import org.apache.nutch.net.URLNormalizer;
  * URL's such as ?a=x&amp;b=y vs b=y&amp;a=x.
  * 
  */
+@Extension
 public class QuerystringURLNormalizer implements URLNormalizer {
 
   private Configuration conf;

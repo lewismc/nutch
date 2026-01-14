@@ -74,6 +74,7 @@ import org.apache.nutch.util.URLUtil;
  * </ul>
  * 
  */
+@org.pf4j.Extension
 public class DomainDenylistURLFilter implements URLFilter {
 
   private static final Logger LOG = LoggerFactory

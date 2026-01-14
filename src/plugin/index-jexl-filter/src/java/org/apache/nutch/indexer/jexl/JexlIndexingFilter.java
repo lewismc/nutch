@@ -35,6 +35,7 @@ import org.apache.nutch.metadata.Metadata;
 import org.apache.nutch.parse.Parse;
 import org.apache.nutch.util.JexlUtil;
 import org.apache.nutch.util.StringUtil;
+import org.pf4j.Extension;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,6 +43,7 @@ import org.slf4j.LoggerFactory;
  * An {@link org.apache.nutch.indexer.IndexingFilter} that allows filtering of
  * documents based on a JEXL expression.
  */
+@Extension
 public class JexlIndexingFilter implements IndexingFilter {
 
   private static final Logger LOG = LoggerFactory

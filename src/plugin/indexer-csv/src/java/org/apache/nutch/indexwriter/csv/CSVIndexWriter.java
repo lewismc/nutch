@@ -36,6 +36,7 @@ import org.apache.nutch.indexer.IndexingJob;
 import org.apache.nutch.indexer.NutchDocument;
 import org.apache.nutch.indexer.NutchField;
 import org.apache.nutch.util.NutchConfiguration;
+import org.pf4j.Extension;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -50,6 +51,7 @@ import org.slf4j.LoggerFactory;
  * <code>-noCommit</code>.
  * </p>
  */
+@Extension
 public class CSVIndexWriter implements IndexWriter {
 
   private static final Logger LOG = LoggerFactory

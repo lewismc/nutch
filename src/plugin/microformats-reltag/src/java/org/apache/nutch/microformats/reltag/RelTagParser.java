@@ -46,6 +46,7 @@ import org.apache.hadoop.conf.Configuration;
  * @see <a href="http://www.microformats.org/wiki/rel-tag">
  *      http://www.microformats.org/wiki/rel-tag</a>
  */
+@org.pf4j.Extension
 public class RelTagParser implements HtmlParseFilter {
 
   private static final Logger LOG = LoggerFactory

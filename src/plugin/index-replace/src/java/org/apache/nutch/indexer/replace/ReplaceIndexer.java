@@ -38,6 +38,7 @@ import org.apache.nutch.indexer.IndexingFilter;
 import org.apache.nutch.indexer.NutchDocument;
 import org.apache.nutch.indexer.NutchField;
 import org.apache.nutch.parse.Parse;
+import org.pf4j.Extension;
 
 /**
  * Do pattern replacements on selected field contents prior to indexing.
@@ -83,6 +84,7 @@ import org.apache.nutch.parse.Parse;
  * @see <a
  *      href="https://issues.apache.org/jira/browse/NUTCH-2058">NUTCH-2058</a>
  */
+@Extension
 public class ReplaceIndexer implements IndexingFilter {
 
   private static final Logger LOG = LoggerFactory

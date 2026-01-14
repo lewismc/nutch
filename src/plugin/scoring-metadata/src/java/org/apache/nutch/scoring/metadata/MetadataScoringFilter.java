@@ -36,6 +36,7 @@ import org.apache.nutch.scoring.ScoringFilterException;
  * 
  * {@link org.apache.nutch.scoring.metadata}
  */
+@org.pf4j.Extension
 public class MetadataScoringFilter extends AbstractScoringFilter  {
 
   public static final String METADATA_DATUM   = "scoring.db.md";

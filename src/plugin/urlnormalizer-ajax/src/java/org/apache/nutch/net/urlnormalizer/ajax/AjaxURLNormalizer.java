@@ -28,6 +28,7 @@ import org.slf4j.LoggerFactory;
 import org.apache.nutch.net.URLNormalizer;
 import org.apache.nutch.net.URLNormalizers;
 import org.apache.hadoop.conf.Configuration;
+import org.pf4j.Extension;
 
 /**
  * URLNormalizer capable of dealing with AJAX URL's.
@@ -35,6 +36,7 @@ import org.apache.hadoop.conf.Configuration;
  * Use the following regex filter to prevent escaped fragments from being fetched.
  * ^(.*)\?.*_escaped_fragment_
  */
+@Extension
 public class AjaxURLNormalizer implements URLNormalizer {
   private static final Logger LOG = LoggerFactory
       .getLogger(MethodHandles.lookup().lookupClass());

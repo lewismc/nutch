@@ -34,7 +34,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import crawlercommons.robots.BaseRobotRules;
+import org.pf4j.Extension;
 
+@Extension
 public class Foo implements Protocol {
   protected static final Logger LOG = LoggerFactory.getLogger(Foo.class);
 

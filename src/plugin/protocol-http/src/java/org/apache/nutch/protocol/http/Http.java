@@ -20,6 +20,7 @@ import java.lang.invoke.MethodHandles;
 import java.io.IOException;
 import java.net.URL;
 
+import org.pf4j.Extension;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,6 +32,13 @@ import org.apache.nutch.protocol.ProtocolException;
 import org.apache.nutch.protocol.http.api.HttpBase;
 import org.apache.nutch.util.NutchConfiguration;
 
+/**
+ * HTTP protocol implementation using Java's built-in HTTP client.
+ * 
+ * <p>This extension is registered with PF4J via the {@link Extension} annotation
+ * and provides protocol handling for both http:// and https:// URLs.</p>
+ */
+@Extension
 public class Http extends HttpBase {
 
   protected static final Logger LOG = LoggerFactory

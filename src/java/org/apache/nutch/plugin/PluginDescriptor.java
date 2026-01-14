@@ -37,7 +37,12 @@ import org.apache.hadoop.conf.Configuration;
  * classloader. There are meta information about <code>Plugin</code>,
  * <code>ExtensionPoint</code> and <code>Extension</code>. To provide access to
  * the meta data of a plugin via a descriptor allow a lazy loading mechanism.
+ * 
+ * @deprecated This class is part of the legacy XML-based plugin system. Plugin metadata
+ *             is now stored in {@code plugin.properties} files and managed by PF4J's
+ *             {@code PluginDescriptor}. Use PF4J's plugin descriptor mechanisms instead.
  */
+@Deprecated
 public class PluginDescriptor {
   private String fPluginPath;
   private String fPluginClass = Plugin.class.getName();

@@ -37,6 +37,8 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
 
+import org.pf4j.Extension;
+
 /**
  * An {@link org.apache.nutch.indexer.IndexingFilter} that adds
  * <code>outlinks</code> and <code>inlinks</code> field(s) to the document.
@@ -66,6 +68,7 @@ import java.util.Set;
  * &lt;/property&gt;
  *
  */
+@Extension
 public class LinksIndexingFilter implements IndexingFilter {
 
   public final static String LINKS_OUTLINKS_HOST = "index.links.outlinks.host.ignore";

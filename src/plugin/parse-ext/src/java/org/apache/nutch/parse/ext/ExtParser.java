@@ -47,7 +47,7 @@ import java.nio.charset.Charset;
  * 
  * @author John Xing
  */
-
+@org.pf4j.Extension
 public class ExtParser implements Parser {
 
   private static final Logger LOG = LoggerFactory

@@ -51,6 +51,7 @@ import java.util.List;
  * @see org.apache.nutch.net.URLExemptionFilter
  * @see org.apache.nutch.urlfilter.regex.RegexURLFilter
  */
+@org.pf4j.Extension
 public class ExemptionUrlFilter extends RegexURLFilter
     implements URLExemptionFilter {
 

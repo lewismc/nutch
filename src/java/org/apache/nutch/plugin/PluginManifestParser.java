@@ -45,7 +45,12 @@ import org.xml.sax.SAXException;
  * in a {@link java.lang.String[]} of plugin directories.
  * 
  * @author joa23
+ * 
+ * @deprecated This class is part of the legacy XML-based plugin system. New plugins
+ *             should use PF4J's annotation-based approach with {@code @Extension}
+ *             annotations and {@code plugin.properties} files instead of {@code plugin.xml}.
  */
+@Deprecated
 public class PluginManifestParser {
   private static final String ATTR_NAME = "name";
   private static final String ATTR_CLASS = "class";

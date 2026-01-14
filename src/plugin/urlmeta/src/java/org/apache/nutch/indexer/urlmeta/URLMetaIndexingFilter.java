@@ -62,6 +62,7 @@ import org.apache.nutch.parse.Parse;
  * indexed versus merely propagated.
  * 
  */
+@org.pf4j.Extension
 public class URLMetaIndexingFilter implements IndexingFilter {
 
   private static final String CONF_PROPERTY = "urlmeta.tags";

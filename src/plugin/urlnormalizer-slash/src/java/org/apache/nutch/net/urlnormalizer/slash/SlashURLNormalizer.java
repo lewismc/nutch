@@ -38,6 +38,7 @@ import org.apache.nutch.plugin.PluginRepository;
 /**
  * @author markus@openindex.io
  */
+@org.pf4j.Extension
 public class SlashURLNormalizer implements URLNormalizer {
 
   private Configuration conf;

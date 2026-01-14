@@ -29,12 +29,14 @@ import org.apache.nutch.protocol.Content;
 import org.apache.nutch.util.DomUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.pf4j.Extension;
 import org.w3c.dom.DocumentFragment;
 
 /**
  * Adds serialized DOM to parse data, useful for debugging, to understand how
  * the parser implementation interprets a document (not only HTML).
  */
+@Extension
 public class DebugParseFilter implements HtmlParseFilter {
 
   private static final Logger LOG = LoggerFactory

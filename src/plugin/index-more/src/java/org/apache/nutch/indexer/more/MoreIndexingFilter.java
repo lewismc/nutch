@@ -61,6 +61,8 @@ import java.util.ArrayList;
 import org.apache.commons.io.FileUtils;
 import java.nio.charset.StandardCharsets;
 
+import org.pf4j.Extension;
+
 /**
  * Add (or reset) a few metaData properties as respective fields (if they are
  * available), so that they can be accurately used within the search index.
@@ -76,7 +78,7 @@ import java.nio.charset.StandardCharsets;
  *
  * @author John Xing
  */
-
+@Extension
 public class MoreIndexingFilter implements IndexingFilter {
   private static final Logger LOG = LoggerFactory
       .getLogger(MethodHandles.lookup().lookupClass());

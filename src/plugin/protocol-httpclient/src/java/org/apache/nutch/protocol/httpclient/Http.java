@@ -55,6 +55,7 @@ import org.apache.nutch.protocol.ProtocolException;
 import org.apache.nutch.protocol.http.api.HttpBase;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.nutch.util.NutchConfiguration;
+import org.pf4j.Extension;
 
 /**
  * <p>
@@ -78,6 +79,7 @@ import org.apache.nutch.util.NutchConfiguration;
  * 
  * @author Susam Pal
  */
+@Extension
 public class Http extends HttpBase {
 
   protected static final Logger LOG = LoggerFactory

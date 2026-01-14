@@ -34,6 +34,7 @@ import org.slf4j.LoggerFactory;
 
 import com.maxmind.geoip2.DatabaseReader;
 import com.maxmind.geoip2.WebServiceClient;
+import org.pf4j.Extension;
 
 /**
  * This plugin implements an indexing filter which takes advantage of the <a
@@ -111,6 +112,7 @@ import com.maxmind.geoip2.WebServiceClient;
  * </pre>
  * 
  */
+@Extension
 public class GeoIPIndexingFilter implements IndexingFilter {
 
   private static final Logger LOG = LoggerFactory

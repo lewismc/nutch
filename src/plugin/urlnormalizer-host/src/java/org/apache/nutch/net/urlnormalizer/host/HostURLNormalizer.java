@@ -45,6 +45,7 @@ import org.apache.nutch.plugin.PluginRepository;
  * 
  * *.example.org www.example.org
  */
+@org.pf4j.Extension
 public class HostURLNormalizer implements URLNormalizer {
 
   private Configuration conf;

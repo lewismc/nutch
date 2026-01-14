@@ -54,6 +54,7 @@ import com.rometools.rome.feed.synd.SyndEntry;
 import com.rometools.rome.feed.synd.SyndFeed;
 import com.rometools.rome.feed.synd.SyndPerson;
 import com.rometools.rome.io.SyndFeedInput;
+import org.pf4j.Extension;
 
 /**
  * 
@@ -67,6 +68,7 @@ import com.rometools.rome.io.SyndFeedInput;
  *        </p>
  * 
  */
+@Extension
 public class FeedParser implements Parser {
 
   public static final String CHARSET_UTF8 = "charset=UTF-8";

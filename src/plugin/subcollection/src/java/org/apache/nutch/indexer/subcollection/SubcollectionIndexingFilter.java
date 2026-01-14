@@ -32,6 +32,7 @@ import org.apache.nutch.collection.Subcollection;
 import org.apache.nutch.crawl.CrawlDatum;
 import org.apache.nutch.crawl.Inlinks;
 
+@org.pf4j.Extension
 public class SubcollectionIndexingFilter extends Configured implements
     IndexingFilter {
 

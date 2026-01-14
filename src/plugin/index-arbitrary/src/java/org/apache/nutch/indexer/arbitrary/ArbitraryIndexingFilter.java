@@ -34,6 +34,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 
 import org.apache.hadoop.conf.Configuration;
+import org.pf4j.Extension;
 
 /**
  * Adds arbitrary searchable fields to a document from the class and method
@@ -76,6 +77,7 @@ import org.apache.hadoop.conf.Configuration;
  * repeat the rest of these blocks with successive int values
  * appended to the property names, e.g. fieldName.1, methodName.1, etc.
  */
+@Extension
 public class ArbitraryIndexingFilter implements IndexingFilter {
 
   private static final Logger LOG = LoggerFactory

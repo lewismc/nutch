@@ -49,6 +49,7 @@ import org.opensearch.common.unit.ByteSizeValue;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
+import org.pf4j.Extension;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -72,6 +73,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * Sends NutchDocuments to a configured OpenSearch index.
  */
+@Extension
 public class OpenSearch1xIndexWriter implements IndexWriter {
   private static final Logger LOG = LoggerFactory.getLogger(
       MethodHandles.lookup().lookupClass());

@@ -34,6 +34,7 @@ import org.w3c.dom.Node;
 /**
  * HtmlParseFilter to retrieve h1 and h2 values from the DOM.
  */
+@org.pf4j.Extension
 public class HeadingsParseFilter implements HtmlParseFilter {
 
   /**
